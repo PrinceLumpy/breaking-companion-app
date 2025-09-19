@@ -6,9 +6,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Build // Added for Settings
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings // Using Settings as a placeholder for TagList
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings // Current icon for TagList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -19,26 +22,58 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.navArgument
+import com.example.combogenerator.ui.screens.AddEditMoveScreen
+import com.example.combogenerator.ui.screens.ComboGeneratorScreen
+import com.example.combogenerator.ui.screens.FlashcardScreen
+import com.example.combogenerator.ui.screens.MoveListScreen
+import com.example.combogenerator.ui.screens.SavedCombosScreen
+import com.example.combogenerator.ui.screens.SettingsScreen // Will be created
+import com.example.combogenerator.ui.screens.TagListScreen
 import com.example.combogenerator.ui.theme.ComboGeneratorTheme
 
-// 1. Define Navigation Routes
-sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    object MoveList : Screen("move_list", "Moves", Icons.Filled.List)
+sealed class Screen(val route: String, val label: String? = null, val icon: ImageVector? = null) {
+    object MoveList : Screen("move_list", "Moves", Icons.AutoMirrored.Filled.List)
     object SavedCombos : Screen("saved_combos", "Saved", Icons.Filled.Favorite)
-    object TagList : Screen("tag_list", "Tags", Icons.Filled.Settings) // Placeholder icon
-    // Add other screens here as needed, e.g., AddEditMove, ComboGenerator, Flashcard
+    object TagList :
+        Screen("tag_list", "Tags", Icons.Filled.Settings) // Existing Settings icon for Tags
+
+    object Settings : Screen("settings", "Settings", Icons.Filled.Build) // New Settings screen
+
+    object AddEditMove : Screen("add_edit_move", "Add/Edit Move")
+    object ComboGenerator : Screen("combo_generator", "Generator", Icons.Filled.PlayArrow)
+    object Flashcard : Screen("flashcard", "Flashcards", Icons.Filled.AddCircle)
+
+    fun withArgs(vararg args: String): String {
+        return buildString {
+            append(route)
+            args.forEach { append("/$it") }
+        }
+    }
+
+    fun withOptionalArgs(map: Map<String, String>): String {
+        return buildString {
+            append(route)
+            if (map.isNotEmpty()) {
+                append("?")
+                append(map.entries.joinToString("&") { "${it.key}=${it.value}" })
+            }
+        }
+    }
 }
 
 val bottomNavItems = listOf(
     Screen.MoveList,
     Screen.SavedCombos,
     Screen.TagList,
+    Screen.Settings // Added Settings to bottom nav
 )
 
 class MainActivity : ComponentActivity() {
@@ -62,74 +97,56 @@ fun MainAppScreen() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 bottomNavItems.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.label) },
-                        label = { Text(screen.label) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                // Pop up to the start destination of the graph to
-                                // avoid building up a large stack of destinations
-                                // on the back stack as users select items
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                    screen.icon?.let {
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = screen.label) },
+                            label = { screen.label?.let { Text(it) } },
+                            selected = currentDestination?.hierarchy?.any {
+                                it.route == screen.route || currentDestination?.route?.startsWith(
+                                    screen.route + "?"
+                                ) == true
+                            } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                // Avoid multiple copies of the same destination when
-                                // reselecting the same item
-                                launchSingleTop = true
-                                // Restore state when reselecting a previously selected item
-                                restoreState = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.MoveList.route, // Your PRD mentions Move List as landing
+            startDestination = Screen.MoveList.route,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.MoveList.route) { MoveListScreen(navController = navController) }
             composable(Screen.SavedCombos.route) { SavedCombosScreen(navController = navController) }
             composable(Screen.TagList.route) { TagListScreen(navController = navController) }
-            // Define other composables for AddEditMove, ComboGenerator, etc.
-            // For example:
-            // composable(Screen.AddEditMove.route + "/{moveId}?") { backStackEntry ->
-            //     val moveId = backStackEntry.arguments?.getString("moveId")
-            //     AddEditMoveScreen(navController = navController, moveId = moveId)
-            // }
+            composable(Screen.Settings.route) { SettingsScreen() } // Added route for SettingsScreen
+
+            composable(
+                route = Screen.AddEditMove.route + "?moveId={moveId}",
+                arguments = listOf(navArgument("moveId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val moveId = backStackEntry.arguments?.getString("moveId")
+                AddEditMoveScreen(navController = navController, moveId = moveId)
+            }
+            composable(Screen.ComboGenerator.route) { ComboGeneratorScreen(navController = navController) }
+            composable(Screen.Flashcard.route) { FlashcardScreen(navController = navController) }
         }
     }
 }
-
-// 2. Create Placeholder Screen Composables
-@Composable
-fun MoveListScreen(navController: androidx.navigation.NavController) {
-    // PRD: Landing screen (Move List): List of moves as cards, Button: “Add Move”, Button: “Generate Combo”
-    Text(text = "Move List Screen - TODO: Implement Cards, Add Move Button, Generate Combo Button")
-    // Example navigation:
-    // Button(onClick = { navController.navigate(Screen.AddEditMove.route) }) { Text("Add Move") }
-}
-
-@Composable
-fun SavedCombosScreen(navController: androidx.navigation.NavController) {
-    // PRD: List of saved combos, Delete option on each combo
-    Text(text = "Saved Combos Screen - TODO: Implement list of saved combos")
-}
-
-@Composable
-fun TagListScreen(navController: androidx.navigation.NavController) {
-    // PRD: List of all user tags, Click tag to view associated moves, Buttons: Edit tag name, Delete tag
-    Text(text = "Tag List Screen - TODO: Implement list of tags, edit/delete functionality")
-}
-
-// --- AddEditMoveScreen (Example of a screen that might take arguments) ---
-// @Composable
-// fun AddEditMoveScreen(navController: androidx.navigation.NavController, moveId: String?) {
-//    Text(text = if (moveId == null) "Add New Move" else "Edit Move: $moveId")
-// }
 
 @Preview(showBackground = true)
 @Composable

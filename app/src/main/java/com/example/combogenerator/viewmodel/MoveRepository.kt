@@ -6,5 +6,5 @@ import com.example.combogenerator.data.MoveTagDao
 
 class MoveRepository(private val dao: MoveTagDao) {
     val moves = dao.getMovesWithTags()
-    fun add(move: Move) = dao.addMove(move)
+    suspend fun add(move: Move) = dao.addMove(move)
 }
