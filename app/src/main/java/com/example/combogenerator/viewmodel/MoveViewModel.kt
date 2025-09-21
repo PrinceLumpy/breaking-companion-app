@@ -36,7 +36,7 @@ interface IMoveViewModel {
     fun deleteMove(move: Move)
     fun updateTag(tagId: String, newName: String)
     fun deleteTag(tag: Tag)
-    fun generateComboFromTags(selectedTags: Set<Tag>): List<Move>
+    fun generateComboFromTags(selectedTags: Set<Tag>, length: Int? = null): List<Move> // Updated signature
     fun saveCombo(comboName: String, moves: List<Move>)
     fun deleteSavedCombo(savedComboId: String)
     fun updateSavedComboName(savedComboId: String, newName: String)
@@ -153,14 +153,45 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
         }
     }
 
-    override fun generateComboFromTags(selectedTags: Set<Tag>): List<Move> {
+    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?): List<Move> {
         val currentMovesWithTags = movesWithTags.value ?: return emptyList()
-        if (selectedTags.isEmpty()) return emptyList()
+        if (selectedTags.isEmpty()) {
+            Log.d("MoveViewModel", "generateComboFromTags: No tags selected, returning empty list.")
+            return emptyList()
+        }
+
         val selectedTagIds = selectedTags.map { it.id }.toSet()
         val matchingMoves = currentMovesWithTags
             .filter { moveWithTags -> moveWithTags.tags.any { it.id in selectedTagIds } }
             .map { it.move }
-        return matchingMoves.shuffled().take(min(3, matchingMoves.size))
+
+        if (matchingMoves.isEmpty()) {
+            Log.d("MoveViewModel", "generateComboFromTags: No moves found matching selected tags.")
+            return emptyList()
+        }
+
+        // Determine the effective length based on user input (or random if 'Auto')
+        // Clamped to the 2-6 range.
+        val effectiveLength = when {
+            length == null -> (2..6).random() // Auto: random 2-6
+            length < 2 -> 2
+            length > 6 -> 6
+            else -> length
+        }
+
+        // Log based on the original user-requested length (if provided) vs. available moves.
+        // The UI will handle user-facing alerts if the original request couldn't be met.
+        if (length != null && length > matchingMoves.size) { // Only log warning if user *specifically requested* more than available
+            Log.w("MoveViewModel", "User originally requested $length moves, but only ${matchingMoves.size} are available with selected tags. Effective length to attempt is $effectiveLength.")
+        } else if (length != null) {
+            Log.d("MoveViewModel", "User originally requested $length moves. Effective length to attempt is $effectiveLength.")
+        } else { // length is null, meaning "Auto"
+            Log.d("MoveViewModel", "User selected Auto length. Effective (random) length to attempt is $effectiveLength.")
+        }
+
+        val movesToTake = min(effectiveLength, matchingMoves.size)
+        Log.d("MoveViewModel", "Generating combo with $movesToTake moves.")
+        return matchingMoves.shuffled().take(movesToTake)
     }
 
     override fun saveCombo(comboName: String, moves: List<Move>) {
@@ -291,10 +322,42 @@ class FakeMoveViewModel : IMoveViewModel {
     override fun deleteMove(move: Move) { Log.d("FakeMoveViewModel", "deleteMove: ${move.name}") }
     override fun updateTag(tagId: String, newName: String) { Log.d("FakeMoveViewModel", "updateTag: $tagId") }
     override fun deleteTag(tag: Tag) { Log.d("FakeMoveViewModel", "deleteTag: ${tag.name}") }
-    override fun generateComboFromTags(selectedTags: Set<Tag>): List<Move> {
-        Log.d("FakeMoveViewModel", "generateComboFromTags")
-        return listOf(fakeMove1, fakeMove2).take(if (selectedTags.isNotEmpty()) 2 else 0)
+
+    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?): List<Move> {
+        Log.d("FakeMoveViewModel", "generateComboFromTags. Tags: ${selectedTags.joinToString { it.name }}, Length: $length")
+
+        val allFakeMoves = listOf(fakeMove1, fakeMove2, fakeMove3) +
+                           initialFakeMovesWithTags.map { it.move } +
+                           initialFakeSavedCombosWithMoves.flatMap { it.moves }
+        val distinctFakeMoves = allFakeMoves.distinctBy { it.id }
+
+        val matchingMoves = if (selectedTags.isEmpty()) {
+            distinctFakeMoves
+        } else {
+            val selectedTagIds = selectedTags.map { it.id }.toSet()
+            initialFakeMovesWithTags // Assuming initialFakeMovesWithTags is the source of truth for tag-move relations in fake
+                .filter { mwt -> mwt.tags.any { tag -> tag.id in selectedTagIds } }
+                .map { it.move }
+                .ifEmpty { distinctFakeMoves } // Fallback to all if no specific tag match found, to ensure some output
+        }
+
+        if (matchingMoves.isEmpty()) {
+            Log.d("FakeMoveViewModel", "No fake moves available for combo generation after filtering.")
+            return emptyList()
+        }
+
+        val effectiveLength = when {
+            length == null -> (2..6).random()
+            length < 2 -> 2
+            length > 6 -> 6
+            else -> length
+        }
+
+        val movesToTake = min(effectiveLength, matchingMoves.size)
+        Log.d("FakeMoveViewModel", "Generating fake combo with $movesToTake moves from ${matchingMoves.size} matching moves.")
+        return matchingMoves.shuffled().take(movesToTake)
     }
+
     override fun saveCombo(comboName: String, moves: List<Move>) { Log.d("FakeMoveViewModel", "saveCombo: $comboName") }
     override fun deleteSavedCombo(savedComboId: String) { Log.d("FakeMoveViewModel", "deleteSavedCombo: $savedComboId") }
     override fun updateSavedComboName(savedComboId: String, newName: String) { Log.d("FakeMoveViewModel", "updateSavedComboName: $savedComboId") }
@@ -307,7 +370,6 @@ class FakeMoveViewModel : IMoveViewModel {
 
     override suspend fun getAppDataForExport(): AppDataExport? {
         Log.d("FakeMoveViewModel", "getAppDataForExport called")
-        // Construct AppDataExport from current fake data
         val moves = _movesWithTags.value?.map { it.move } ?: emptyList()
         val tags = _allTags.value ?: emptyList()
         val moveTagCrossRefs = _movesWithTags.value?.flatMap { mwt -> mwt.tags.map { tag -> MoveTagCrossRef(mwt.move.id, tag.id) } } ?: emptyList()
@@ -320,7 +382,6 @@ class FakeMoveViewModel : IMoveViewModel {
 
     override suspend fun importAppData(appData: AppDataExport): Boolean {
         Log.d("FakeMoveViewModel", "importAppData called with ${appData.moves.size} moves, ${appData.tags.size} tags")
-        // Simplified: just reset to initial fake data and log, or could try to reflect imported data
         _movesWithTags.value = appData.moves.map { move -> MoveWithTags(move, appData.moveTagCrossRefs.filter { it.moveId == move.id }.mapNotNull { crossRef -> appData.tags.find { it.id == crossRef.tagId } }) }
         _allTags.value = appData.tags
         _savedCombos.value = appData.savedCombos.map { sc -> SavedComboWithMoves(sc, appData.savedComboMoveLinks.filter { it.savedComboId == sc.id }.sortedBy { it.orderInCombo }.mapNotNull { link -> appData.moves.find { it.id == link.moveId } }) }

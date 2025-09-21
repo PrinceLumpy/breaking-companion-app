@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack // Corrected import
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -14,22 +14,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel // Keep for real app usage
-import androidx.navigation.NavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.combogenerator.data.Tag
-// Import the interface and the Fake implementation
 import com.example.combogenerator.viewmodel.IMoveViewModel
 import com.example.combogenerator.viewmodel.FakeMoveViewModel
-import com.example.combogenerator.viewmodel.MoveViewModel // Still needed for the default viewModel()
+import com.example.combogenerator.viewmodel.MoveViewModel
 import com.example.combogenerator.ui.theme.ComboGeneratorTheme
 import androidx.navigation.compose.rememberNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TagListScreen(
-    navController: NavController,
-    // Use the interface IMoveViewModel.
-    // The viewModel() delegate will still provide the concrete MoveViewModel in the actual app.
     moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
 ) {
     val tagsList by moveViewModel.allTags.observeAsState(initial = emptyList())
@@ -37,16 +32,19 @@ fun TagListScreen(
     var showDeleteDialog by remember { mutableStateOf<Tag?>(null) }
     var tagNameForEdit by remember { mutableStateOf("") }
 
+    var showAddTagDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Tags") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                title = { Text("Manage Tags") }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddTagDialog = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "Add Tag")
+            }
         }
     ) { paddingValues ->
         Column(
@@ -56,28 +54,69 @@ fun TagListScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (tagsList.isEmpty()) {
-                Text("No tags found. Add tags when creating or editing moves.")
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(tagsList, key = { it.id }) { tag ->
-                        TagListItem(
-                            tag = tag,
-                            onEditClick = {
-                                tagNameForEdit = it.name
-                                showEditDialog = it
-                            },
-                            onDeleteClick = {
-                                showDeleteDialog = it
-                            }
-                        )
-                    }
+            if (tagsList.isEmpty() && !showAddTagDialog) { // Also check showAddTagDialog to prevent flicker
+                Text("No tags found. Click the '+' button to add a new tag.")
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(tagsList, key = { it.id }) { tag ->
+                    TagListItem(
+                        tag = tag,
+                        onEditClick = {
+                            tagNameForEdit = it.name
+                            showEditDialog = it
+                        },
+                        onDeleteClick = {
+                            showDeleteDialog = it
+                        }
+                    )
                 }
             }
         }
+    }
+
+    if (showAddTagDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddTagDialog = false
+                newTagName = "" // Reset name on dismiss
+            },
+            title = { Text("Add New Tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagName,
+                    onValueChange = { newTagName = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newTagName.isNotBlank()) {
+                            // TODO: Implement moveViewModel.addTag(newTagName) in ViewModel
+                            moveViewModel.addTag(newTagName) // Assuming Tag object is needed, adjust if only name
+                            showAddTagDialog = false
+                            newTagName = "" // Reset name after adding
+                        }
+                    },
+                    enabled = newTagName.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddTagDialog = false
+                    newTagName = "" // Reset name on cancel
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     showEditDialog?.let { tagToEdit ->
@@ -181,9 +220,8 @@ fun TagListItem(
 @Composable
 fun TagListScreenPreview() {
     ComboGeneratorTheme {
-        val dummyNavController = rememberNavController()
-        // Use FakeMoveViewModel for the preview
-        TagListScreen(navController = dummyNavController, moveViewModel = FakeMoveViewModel())
+        rememberNavController()
+        TagListScreen(moveViewModel = FakeMoveViewModel())
     }
 }
 

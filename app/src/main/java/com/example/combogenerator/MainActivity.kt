@@ -51,13 +51,6 @@ sealed class Screen(val route: String, val label: String? = null, val icon: Imag
     object ComboGenerator : Screen("combo_generator", "Generator", Icons.Filled.PlayArrow)
     object Flashcard : Screen("flashcard", "Flashcards", Icons.Filled.AddCircle)
 
-    fun withArgs(vararg args: String): String {
-        return buildString {
-            append(route)
-            args.forEach { append("/$it") }
-        }
-    }
-
     fun withOptionalArgs(map: Map<String, String>): String {
         return buildString {
             append(route)
@@ -102,7 +95,7 @@ fun MainAppScreen() {
                             icon = { Icon(screen.icon, contentDescription = screen.label) },
                             label = { screen.label?.let { Text(it) } },
                             selected = currentDestination?.hierarchy?.any {
-                                it.route == screen.route || currentDestination?.route?.startsWith(
+                                it.route == screen.route || currentDestination.route?.startsWith(
                                     screen.route + "?"
                                 ) == true
                             } == true,
@@ -112,7 +105,7 @@ fun MainAppScreen() {
                                         saveState = true
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
+                                    restoreState = screen != Screen.MoveList
                                 }
                             }
                         )
@@ -127,8 +120,8 @@ fun MainAppScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.MoveList.route) { MoveListScreen(navController = navController) }
-            composable(Screen.SavedCombos.route) { SavedCombosScreen(navController = navController) }
-            composable(Screen.TagList.route) { TagListScreen(navController = navController) }
+            composable(Screen.SavedCombos.route) { SavedCombosScreen() }
+            composable(Screen.TagList.route) { TagListScreen() }
             composable(Screen.Settings.route) { SettingsScreen() } // Added route for SettingsScreen
 
             composable(

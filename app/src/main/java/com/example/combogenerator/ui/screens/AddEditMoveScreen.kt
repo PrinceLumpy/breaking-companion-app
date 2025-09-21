@@ -2,6 +2,8 @@ package com.example.combogenerator.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack // Changed for consistency
@@ -11,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,20 +26,19 @@ import com.example.combogenerator.ui.theme.ComboGeneratorTheme
 import com.example.combogenerator.viewmodel.IMoveViewModel
 import com.example.combogenerator.viewmodel.FakeMoveViewModel
 import com.example.combogenerator.viewmodel.MoveViewModel // Still needed for the default viewModel()
-// kotlinx.coroutines.launch is not directly needed here as LaunchedEffect provides its own scope
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditMoveScreen(
     navController: NavController,
     moveId: String?,
-    // Use the interface IMoveViewModel
     moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
 ) {
     var moveName by remember { mutableStateOf("") }
     var newTagName by remember { mutableStateOf("") }
     val allTags by moveViewModel.allTags.observeAsState(initial = emptyList())
     var selectedTags by remember { mutableStateOf(setOf<Tag>()) }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(key1 = moveId) {
         if (moveId != null) {
@@ -44,13 +47,39 @@ fun AddEditMoveScreen(
                 moveName = moveBeingEdited.move.name
                 selectedTags = moveBeingEdited.tags.toSet()
             } else {
-                println("AddEditMoveScreen: Could not find move with ID $moveId for editing. (This might be normal in some preview scenarios if ID doesn't match fake data)")
-                // Consider navController.popBackStack() if it's a real non-preview scenario
+                println("AddEditMoveScreen: Could not find move with ID $moveId for editing.")
             }
         } else {
-            // Reset fields for "Add Mode" if navigating back from "Edit Mode" or if moveId is null initially
             moveName = ""
             selectedTags = setOf()
+        }
+    }
+
+    val saveMoveAction: () -> Unit = {
+        if (moveName.isNotBlank()) {
+            if (moveId == null) {
+                moveViewModel.addMove(moveName, selectedTags.toList())
+            } else {
+                moveViewModel.updateMoveAndTags(moveId, moveName, selectedTags.toList())
+            }
+            keyboardController?.hide()
+            navController.popBackStack()
+        } else {
+            println("Move name cannot be blank.") // TODO: Show user-facing error
+        }
+    }
+
+    val addTagAction: () -> Unit = {
+        if (newTagName.isNotBlank()) {
+            val trimmedTagName = newTagName.trim()
+            if (!allTags.any { it.name.equals(trimmedTagName, ignoreCase = true) }) {
+                moveViewModel.addTag(trimmedTagName)
+                newTagName = "" // Clear input after successful add
+            } else {
+                println("Tag '$trimmedTagName' already exists.") // TODO: Show user-facing error
+                newTagName = "" // Clear input after attempting to add existing tag
+            }
+            keyboardController?.hide()
         }
     }
 
@@ -66,19 +95,7 @@ fun AddEditMoveScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                if (moveName.isNotBlank()) {
-                    if (moveId == null) {
-                        moveViewModel.addMove(moveName, selectedTags.toList())
-                    } else {
-                        moveViewModel.updateMoveAndTags(moveId, moveName, selectedTags.toList())
-                    }
-                    navController.popBackStack()
-                } else {
-                    // TODO: Show a user-facing error (e.g., Snackbar)
-                    println("Move name cannot be blank.")
-                }
-            }) {
+            FloatingActionButton(onClick = saveMoveAction) {
                 Icon(Icons.Filled.Done, contentDescription = "Save Move")
             }
         }
@@ -97,7 +114,9 @@ fun AddEditMoveScreen(
                 onValueChange = { moveName = it },
                 label = { Text("Move Name") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { saveMoveAction() })
             )
 
             Text("Select Tags:", style = MaterialTheme.typography.titleMedium)
@@ -140,21 +159,11 @@ fun AddEditMoveScreen(
                     onValueChange = { newTagName = it },
                     label = { Text("New Tag Name") },
                     modifier = Modifier.weight(1f),
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { addTagAction() })
                 )
-                Button(onClick = {
-                    if (newTagName.isNotBlank()) {
-                        val trimmedTagName = newTagName.trim()
-                        if (!allTags.any { it.name.equals(trimmedTagName, ignoreCase = true) }) {
-                            moveViewModel.addTag(trimmedTagName) // This will now also update FakeViewModel's tags
-                            newTagName = ""
-                        } else {
-                            println("Tag '$trimmedTagName' already exists.")
-                            // Optionally, clear newTagName or show a message to the user
-                            newTagName = "" // Clear input after attempting to add existing tag
-                        }
-                    }
-                }) {
+                Button(onClick = addTagAction) {
                     Text("Add Tag")
                 }
             }

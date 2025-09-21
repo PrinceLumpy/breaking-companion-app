@@ -34,7 +34,13 @@ fun ComboGeneratorScreen(
     val allTags by moveViewModel.allTags.observeAsState(initial = emptyList())
     var selectedGeneratorTags by remember { mutableStateOf(setOf<Tag>()) }
     var generatedComboText by remember { mutableStateOf("Your combo will appear here.") }
-    var currentGeneratedMoves by remember { mutableStateOf<List<Move>>(emptyList()) } // Added to store the generated moves
+    var currentGeneratedMoves by remember { mutableStateOf<List<Move>>(emptyList()) }
+    var selectedLength by remember { mutableStateOf<Int?>(null) } // null for Random
+    val lengthOptions = listOf(null, 2, 3, 4, 5, 6) // null represents "Random"
+
+    var showLengthWarningDialog by remember { mutableStateOf(false) }
+    var warningDialogMessage by remember { mutableStateOf("") }
+    var lengthDropdownExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -97,21 +103,61 @@ fun ComboGeneratorScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp)) // Changed from 5.dp to 4.dp
+
+            Text("Number of Moves:", style = MaterialTheme.typography.titleMedium)
+            Box(modifier = Modifier.fillMaxWidth()) { // Box to allow better alignment/sizing if needed
+                ExposedDropdownMenuBox(
+                    expanded = lengthDropdownExpanded,
+                    onExpandedChange = { lengthDropdownExpanded = !lengthDropdownExpanded },
+                    modifier = Modifier.align(Alignment.Center) // Centers the dropdown box
+                ) {
+                    OutlinedTextField(
+                        value = selectedLength?.toString() ?: "Random",
+                        onValueChange = {}, // Not directly editable
+                        readOnly = true,
+                        label = { Text("Combo Length") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = lengthDropdownExpanded) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(), // Use outlined variant colors
+                        modifier = Modifier.fillMaxWidth(0.6f) // Anchor for the dropdown menu (handled by ExposedDropdownMenuBox)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = lengthDropdownExpanded,
+                        onDismissRequest = { lengthDropdownExpanded = false }
+                    ) {
+                        lengthOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option?.toString() ?: "Random") },
+                                onClick = {
+                                    selectedLength = option
+                                    lengthDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp)) // Changed from 16.dp to 12.dp
 
             Button(
                 onClick = {
                     if (selectedGeneratorTags.isNotEmpty()) {
-                        val comboMoves = moveViewModel.generateComboFromTags(selectedGeneratorTags)
+                        val comboMoves = moveViewModel.generateComboFromTags(selectedGeneratorTags, selectedLength)
                         if (comboMoves.isNotEmpty()) {
-                            currentGeneratedMoves = comboMoves // Store the actual moves
+                            currentGeneratedMoves = comboMoves
                             generatedComboText = comboMoves.joinToString(separator = "  ->  ") { it.name }
+
+                            if (selectedLength != null && selectedLength!! > comboMoves.size) {
+                                warningDialogMessage = "Only ${comboMoves.size} are available with the selected tags. A combo of ${comboMoves.size} moves has been generated."
+                                showLengthWarningDialog = true
+                            }
                         } else {
-                            currentGeneratedMoves = emptyList() // Clear if no moves found
-                            generatedComboText = "No moves found matching the selected tags. Try a different selection."
+                            currentGeneratedMoves = emptyList()
+                            generatedComboText = "No moves found matching the selected tags. Try a different selection or 'Random' length."
                         }
                     } else {
-                        currentGeneratedMoves = emptyList() // Clear if no tags selected
+                        currentGeneratedMoves = emptyList()
                         generatedComboText = "Please select at least one tag to generate a combo."
                     }
                 },
@@ -121,7 +167,7 @@ fun ComboGeneratorScreen(
                 Text("Generate Combo")
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text("Generated Combo:", style = MaterialTheme.typography.titleMedium)
             Card(
@@ -136,16 +182,14 @@ fun ComboGeneratorScreen(
                 )
             }
 
-            // Save Combo Button
             if (currentGeneratedMoves.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        moveViewModel.saveCombo("", currentGeneratedMoves) // Pass empty string for auto-name
-                        // Optionally, provide user feedback e.g., show a Snackbar
-                        // And clear the current combo to prevent re-saving the same one immediately
-                        // generatedComboText = "Combo saved! Generate a new one."
-                        // currentGeneratedMoves = emptyList()
+                        moveViewModel.saveCombo("", currentGeneratedMoves)
+                        // Consider giving feedback like a Snackbar that combo is saved
+                        // generatedComboText = "Combo saved!"
+                        // currentGeneratedMoves = emptyList() // Optionally clear after saving
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -156,17 +200,26 @@ fun ComboGeneratorScreen(
             }
         }
     }
+
+    if (showLengthWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showLengthWarningDialog = false },
+            title = { Text("Note") },
+            text = { Text(warningDialogMessage) },
+            confirmButton = {
+                TextButton(onClick = { showLengthWarningDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun ComboGeneratorScreenPreview() {
     ComboGeneratorTheme {
-        // Create a FakeMoveViewModel that also has some saved combos for preview if needed
         val previewViewModel = FakeMoveViewModel()
-        // Example of pre-populating generated moves for previewing the save button
-        // val sampleMoves = listOf(Move(id = "m1", name = "Preview Move 1"), Move(id = "m2", name = "Preview Move 2"))
-
         ComboGeneratorScreen(
             navController = rememberNavController(),
             moveViewModel = previewViewModel
