@@ -50,6 +50,10 @@ interface MoveTagDao {
     @Transaction
     @Query("SELECT * FROM moves WHERE id = :moveId")
     suspend fun getMoveWithTagsById(moveId: String): MoveWithTags?
+    
+    @Transaction
+    @Query("SELECT * FROM tags WHERE id = :tagId")
+    suspend fun getTagWithMoves(tagId: String): TagWithMoves?
 
     @Update
     suspend fun updateMove(move: Move)

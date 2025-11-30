@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -13,29 +14,21 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.princelumpy.breakvault.R
-import com.princelumpy.breakvault.Screen
-import com.princelumpy.breakvault.data.Tag
-import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
-import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
-import com.princelumpy.breakvault.viewmodel.IMoveViewModel
-import com.princelumpy.breakvault.viewmodel.MoveViewModel
+import com.princelumpy.breakvault.data.BattleTag
+import com.princelumpy.breakvault.viewmodel.BattleViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TagListScreen(
+fun BattleTagListScreen(
     navController: NavController,
-    moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
+    battleViewModel: BattleViewModel = viewModel()
 ) {
-    val tagsList by moveViewModel.allTags.observeAsState(initial = emptyList())
-    var showEditDialog by remember { mutableStateOf<Tag?>(null) }
-    var showDeleteDialog by remember { mutableStateOf<Tag?>(null) }
+    val tagsList by battleViewModel.allBattleTags.observeAsState(initial = emptyList())
+    var showEditDialog by remember { mutableStateOf<BattleTag?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<BattleTag?>(null) }
     var tagNameForEdit by remember { mutableStateOf("") }
 
     var showAddTagDialog by remember { mutableStateOf(false) }
@@ -44,12 +37,17 @@ fun TagListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(id = R.string.tag_list_manage_tags_title)) }
+                title = { Text("Manage Battle Tags") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddTagDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(id = R.string.tag_list_add_tag_fab_description))
+                Icon(Icons.Filled.Add, contentDescription = "Add Tag")
             }
         }
     ) { paddingValues ->
@@ -61,7 +59,7 @@ fun TagListScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (tagsList.isEmpty() && !showAddTagDialog) {
-                Text(stringResource(id = R.string.tag_list_no_tags_message))
+                Text("No battle tags found. Click '+' to add one.")
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -71,11 +69,8 @@ fun TagListScreen(
                     items = tagsList,
                     key = { it.id }
                 ) { tag ->
-                    TagListItem(
+                    BattleTagListItem(
                         tag = tag,
-                        onItemClick = {
-                            navController.navigate(Screen.MovesByTag.withArgs(it.id, it.name))
-                        },
                         onEditClick = {
                             tagNameForEdit = it.name
                             showEditDialog = it
@@ -90,12 +85,12 @@ fun TagListScreen(
     if (showAddTagDialog) {
         AlertDialog(
             onDismissRequest = { showAddTagDialog = false; newTagName = "" },
-            title = { Text(stringResource(id = R.string.tag_list_add_new_tag_dialog_title)) },
+            title = { Text("Add New Battle Tag") },
             text = {
                 OutlinedTextField(
                     value = newTagName,
                     onValueChange = { newTagName = it },
-                    label = { Text(stringResource(id = R.string.tag_list_tag_name_label)) },
+                    label = { Text("Tag Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -104,19 +99,19 @@ fun TagListScreen(
                 TextButton(
                     onClick = {
                         if (newTagName.isNotBlank()) {
-                            moveViewModel.addTag(newTagName)
+                            battleViewModel.addBattleTag(newTagName)
                             showAddTagDialog = false
                             newTagName = ""
                         }
                     },
                     enabled = newTagName.isNotBlank()
                 ) {
-                    Text(stringResource(id = R.string.common_add))
+                    Text("Add")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddTagDialog = false; newTagName = "" }) {
-                    Text(stringResource(id = R.string.common_cancel))
+                    Text("Cancel")
                 }
             }
         )
@@ -125,12 +120,12 @@ fun TagListScreen(
     showEditDialog?.let { tagToEdit ->
         AlertDialog(
             onDismissRequest = { showEditDialog = null },
-            title = { Text(stringResource(id = R.string.tag_list_edit_tag_name_dialog_title)) },
+            title = { Text("Edit Tag Name") },
             text = {
                 OutlinedTextField(
                     value = tagNameForEdit,
                     onValueChange = { tagNameForEdit = it },
-                    label = { Text(stringResource(id = R.string.tag_list_new_tag_name_label)) },
+                    label = { Text("New Tag Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -139,19 +134,19 @@ fun TagListScreen(
                 TextButton(
                     onClick = {
                         if (tagNameForEdit.isNotBlank() && tagNameForEdit != tagToEdit.name) {
-                            moveViewModel.updateTag(tagToEdit.id, tagNameForEdit)
+                            battleViewModel.updateBattleTag(tagToEdit.copy(name = tagNameForEdit))
                         }
                         showEditDialog = null
                         tagNameForEdit = ""
                     },
                     enabled = tagNameForEdit.isNotBlank()
                 ) {
-                    Text(stringResource(id = R.string.common_save))
+                    Text("Save")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showEditDialog = null; tagNameForEdit = "" }) {
-                    Text(stringResource(id = R.string.common_cancel))
+                    Text("Cancel")
                 }
             }
         )
@@ -160,22 +155,22 @@ fun TagListScreen(
     showDeleteDialog?.let { tagToDelete ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text(stringResource(id = R.string.common_confirm_deletion_title)) },
-            text = { Text(stringResource(id = R.string.tag_list_delete_confirmation_message, tagToDelete.name)) },
+            title = { Text("Confirm Deletion") },
+            text = { Text("Are you sure you want to delete '${tagToDelete.name}'?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        moveViewModel.deleteTag(tagToDelete)
+                        battleViewModel.deleteBattleTag(tagToDelete)
                         showDeleteDialog = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(id = R.string.common_delete))
+                    Text("Delete")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text(stringResource(id = R.string.common_cancel))
+                    Text("Cancel")
                 }
             }
         )
@@ -183,16 +178,13 @@ fun TagListScreen(
 }
 
 @Composable
-fun TagListItem(
-    tag: Tag,
-    onItemClick: (Tag) -> Unit,
-    onEditClick: (Tag) -> Unit,
-    onDeleteClick: (Tag) -> Unit
+fun BattleTagListItem(
+    tag: BattleTag,
+    onEditClick: (BattleTag) -> Unit,
+    onDeleteClick: (BattleTag) -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onItemClick(tag) },
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -209,33 +201,12 @@ fun TagListItem(
             )
             Row {
                 IconButton(onClick = { onEditClick(tag) }) {
-                    Icon(Icons.Filled.Edit, contentDescription = stringResource(id = R.string.tag_list_edit_tag_description))
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit Tag")
                 }
                 IconButton(onClick = { onDeleteClick(tag) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(id = R.string.tag_list_delete_tag_description), tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete Tag", tint = MaterialTheme.colorScheme.error)
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TagListScreenPreview() {
-    ComboGeneratorTheme {
-        TagListScreen(navController = rememberNavController(), moveViewModel = FakeMoveViewModel())
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TagListItemPreview() {
-    ComboGeneratorTheme {
-        TagListItem(
-            tag = Tag("1", "Beginner"),
-            onItemClick = {},
-            onEditClick = {},
-            onDeleteClick = {}
-        )
     }
 }

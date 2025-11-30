@@ -47,6 +47,9 @@ fun AddEditMoveScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current // For Snackbar messages
 
+    // State to track auto-selection of newly added tags
+    var pendingAutoSelectTagName by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(key1 = moveId) {
         if (moveId != null) {
             val moveBeingEdited = moveViewModel.getMoveForEditing(moveId)
@@ -59,6 +62,17 @@ fun AddEditMoveScreen(
         } else {
             moveName = ""
             selectedTags = setOf()
+        }
+    }
+
+    // Auto-select logic: When allTags updates, check if we are waiting for a tag to appear
+    LaunchedEffect(allTags, pendingAutoSelectTagName) {
+        pendingAutoSelectTagName?.let { tagName ->
+            val foundTag = allTags.find { it.name.equals(tagName, ignoreCase = true) }
+            if (foundTag != null) {
+                selectedTags = selectedTags + foundTag
+                pendingAutoSelectTagName = null // Reset
+            }
         }
     }
 
@@ -84,6 +98,7 @@ fun AddEditMoveScreen(
             val trimmedTagName = newTagName.trim()
             if (!allTags.any { it.name.equals(trimmedTagName, ignoreCase = true) }) {
                 moveViewModel.addTag(trimmedTagName)
+                pendingAutoSelectTagName = trimmedTagName // Queue for auto-selection
                 newTagName = "" // Clear input after successful add
             } else {
                 Log.w("AddEditMoveScreen", "Validation failed: Tag '$trimmedTagName' already exists.")

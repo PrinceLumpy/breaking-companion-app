@@ -1,43 +1,15 @@
 package com.princelumpy.breakvault.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,10 +19,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.princelumpy.breakvault.R
-import com.princelumpy.breakvault.data.Move
+import com.princelumpy.breakvault.Screen
 import com.princelumpy.breakvault.data.SavedCombo
-import com.princelumpy.breakvault.data.SavedComboWithMoves
 import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
 import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
 import com.princelumpy.breakvault.viewmodel.IMoveViewModel
@@ -60,15 +33,11 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedCombosScreen(
+    navController: NavController,
     moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
 ) {
     val savedCombosList by moveViewModel.savedCombos.observeAsState(initial = emptyList())
-
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var comboToRename by remember { mutableStateOf<SavedComboWithMoves?>(null) }
-    var newComboNameText by remember { mutableStateOf("") }
-
-    var showDeleteDialog by remember { mutableStateOf<SavedComboWithMoves?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<SavedCombo?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -76,9 +45,12 @@ fun SavedCombosScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.saved_combos_screen_title)) }
-            )
+            TopAppBar(title = { Text(stringResource(id = R.string.saved_combos_screen_title)) })
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { navController.navigate(Screen.CreateEditCombo.route) }) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.create_combo_fab_description))
+            }
         }
     ) { paddingValues ->
         if (savedCombosList.isEmpty()) {
@@ -101,60 +73,33 @@ fun SavedCombosScreen(
             ) {
                 items(
                     savedCombosList,
-                    key = { savedComboWithMoves -> savedComboWithMoves.savedCombo.id }) { savedComboItem ->
+                    key = { it.id }
+                ) { savedCombo ->
                     SavedComboItem(
-                        savedComboWithMoves = savedComboItem,
+                        savedCombo = savedCombo,
                         onItemClick = {
-                            comboToRename = savedComboItem
-                            newComboNameText = savedComboItem.savedCombo.name
-                            showRenameDialog = true
+                            navController.navigate(Screen.CreateEditCombo.withOptionalArgs(mapOf("comboId" to savedCombo.id)))
                         },
-                        onDeleteClick = { showDeleteDialog = savedComboItem }
+                        onDeleteClick = { showDeleteDialog = savedCombo }
                     )
                 }
             }
         }
     }
 
-    if (showRenameDialog && comboToRename != null) {
-        RenameComboDialog(
-            currentCombo = comboToRename!!, // Safe due to && condition
-            currentName = newComboNameText,
-            onNameChange = { newComboNameText = it },
-            onDismiss = {
-                showRenameDialog = false
-                comboToRename = null
-                newComboNameText = ""
-            },
-            onSave = {
-                if (newComboNameText.isNotBlank() && newComboNameText != comboToRename!!.savedCombo.name) {
-                    moveViewModel.updateSavedComboName(
-                        comboToRename!!.savedCombo.id,
-                        newComboNameText
-                    )
-                    // Optional: Snackbar for successful rename
-                }
-                showRenameDialog = false
-                comboToRename = null
-                newComboNameText = ""
-            }
-        )
-    }
-
     showDeleteDialog?.let { comboToDelete ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text(stringResource(id = R.string.common_confirm_deletion_title)) },
-            text = { Text(stringResource(id = R.string.move_list_delete_confirmation_message, comboToDelete.savedCombo.name)) }, // Reusing string from MoveList, consider specific one for combos
+            text = { Text(stringResource(id = R.string.move_list_delete_confirmation_message, comboToDelete.name)) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        moveViewModel.deleteSavedCombo(comboToDelete.savedCombo.id)
+                        moveViewModel.deleteSavedCombo(comboToDelete.id)
                         showDeleteDialog = null
                         scope.launch {
                             snackbarHostState.showSnackbar(
-                                // Consider creating a specific "Combo Deleted" string
-                                message = context.getString(R.string.combo_generator_combo_saved_snackbar).replace("saved", "deleted") // Quick hack for now
+                                message = context.getString(R.string.combo_deleted_snackbar)
                             )
                         }
                     },
@@ -174,14 +119,14 @@ fun SavedCombosScreen(
 
 @Composable
 fun SavedComboItem(
-    savedComboWithMoves: SavedComboWithMoves,
-    onItemClick: (SavedComboWithMoves) -> Unit,
+    savedCombo: SavedCombo,
+    onItemClick: (SavedCombo) -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onItemClick(savedComboWithMoves) }, // Make the whole card clickable
+            .clickable { onItemClick(savedCombo) },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -193,13 +138,13 @@ fun SavedComboItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = savedComboWithMoves.savedCombo.name,
+                    text = savedCombo.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = savedComboWithMoves.moves.joinToString(separator = " -> ") { it.name },
+                    text = savedCombo.moves.joinToString(separator = " -> "),
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = 14.sp
                 )
@@ -211,49 +156,12 @@ fun SavedComboItem(
     }
 }
 
-@Composable
-fun RenameComboDialog(
-    currentCombo: SavedComboWithMoves,
-    currentName: String,
-    onNameChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onSave: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.saved_combos_rename_dialog_title)) },
-        text = {
-            OutlinedTextField(
-                value = currentName,
-                onValueChange = onNameChange,
-                label = { Text(stringResource(id = R.string.saved_combos_rename_dialog_combo_name_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onSave,
-                enabled = currentName.isNotBlank() && currentName != currentCombo.savedCombo.name
-            ) {
-                Text(stringResource(id = R.string.common_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.common_cancel))
-            }
-        }
-    )
-}
-
-
 @Preview(showBackground = true)
 @Composable
 fun SavedCombosScreenPreview() {
     ComboGeneratorTheme {
         val fakeViewModel = FakeMoveViewModel()
-        SavedCombosScreen(moveViewModel = fakeViewModel)
+        SavedCombosScreen(navController = rememberNavController(), moveViewModel = fakeViewModel)
     }
 }
 
@@ -261,35 +169,15 @@ fun SavedCombosScreenPreview() {
 @Composable
 fun SavedComboItemPreview() {
     ComboGeneratorTheme {
-        val sampleCombo = SavedComboWithMoves(
-            SavedCombo(id = "preview1", name = "Awesome Combo"),
-            moves = listOf(
-                Move(id = "m1", name = "Jab"),
-                Move(id = "m2", name = "Cross"),
-                Move(id = "m3", name = "Hook")
-            )
+        val sampleCombo = SavedCombo(
+            id = "preview1",
+            name = "Awesome Combo",
+            moves = listOf("Jab", "Cross", "Hook")
         )
         SavedComboItem(
-            savedComboWithMoves = sampleCombo,
+            savedCombo = sampleCombo,
             onItemClick = {},
             onDeleteClick = {}
-        )
-    }
-}
-
-@Preview
-@Composable
-fun RenameComboDialogPreview() {
-    ComboGeneratorTheme {
-        RenameComboDialog(
-            currentCombo = SavedComboWithMoves(
-                SavedCombo(id = "preview1", name = "Old Name"),
-                moves = emptyList()
-            ),
-            currentName = "Old Name",
-            onNameChange = {},
-            onDismiss = {},
-            onSave = {}
         )
     }
 }

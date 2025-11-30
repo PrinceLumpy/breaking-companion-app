@@ -35,6 +35,15 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Configure lenient JSON parser
+    val json = remember {
+        Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            encodeDefaults = true
+        }
+    }
+
     val exportDataLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
         onResult = { uri: Uri? ->
@@ -43,8 +52,7 @@ fun SettingsScreen(
                     try {
                         val appData = moveViewModel.getAppDataForExport()
                         if (appData != null) {
-                            val jsonString =
-                                Json.encodeToString(appData)
+                            val jsonString = json.encodeToString(AppDataExport.serializer(), appData)
                             context.contentResolver.openOutputStream(it)?.use { outputStream ->
                                 outputStream.write(jsonString.toByteArray())
                             }
@@ -73,8 +81,7 @@ fun SettingsScreen(
                                 BufferedReader(InputStreamReader(inputStream)).readText()
                             }
                         if (jsonString != null) {
-                            val appData =
-                                Json.decodeFromString<AppDataExport>(jsonString)
+                            val appData = json.decodeFromString<AppDataExport>(jsonString)
                             val success = moveViewModel.importAppData(appData)
                             if (success) {
                                 snackbarHostState.showSnackbar(context.getString(R.string.settings_import_success_snackbar))

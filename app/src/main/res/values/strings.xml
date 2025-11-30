@@ -9,6 +9,9 @@
     <string name="screen_label_combo_generator">Generator</string>
     <string name="screen_label_flashcards">Flashcards</string>
     <string name="screen_label_add_edit_move">Add/Edit Move</string>
+    <string name="screen_label_battle_arena">Battle</string>
+    <string name="screen_label_battle_mode">Battle</string>
+    <string name="screen_label_practice_mode">Practice</string>
 
     <!-- TagListScreen -->
     <string name="tag_list_manage_tags_title">Manage Tags</string>
@@ -62,6 +65,14 @@
     <string name="combo_generator_save_combo_icon_description">Save Combo</string>
     <string name="combo_generator_length_warning_dialog_title">Note</string>
     <string name="combo_generator_combo_saved_snackbar">Combo saved!</string>
+    <string name="combo_generator_define_structure_label">Define Structure:</string>
+    <string name="combo_generator_add_tag_to_sequence_label">Add Tag to Sequence</string>
+    <string name="combo_generator_add_to_sequence_button">Add to Sequence</string>
+    <string name="combo_generator_current_sequence_label">Current Sequence:</string>
+    <string name="combo_generator_clear_sequence_button">Clear</string>
+    <string name="combo_generator_clear_sequence_button_description">Clear Sequence</string>
+    <string name="combo_generator_undo_button">Undo</string>
+    <string name="combo_generator_undo_button_description">Remove last tag</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Settings</string>
@@ -82,15 +93,31 @@
     <string name="settings_reset_dialog_confirm_button">Reset</string>
 
     <!-- FlashcardScreen -->
-    <string name="flashcard_screen_placeholder_title">Flashcards</string>
-    <string name="flashcard_upcoming_feature_message">Flashcard functionality is coming soon! Stay tuned for more updates.</string>
+    <string name="flashcard_screen_title">Flashcards</string>
+    <string name="flashcard_select_tags_prompt">Select tags to practice with:</string>
+    <string name="flashcard_no_tags_available_message">No tags available to practice with.</string>
+    <string name="flashcard_next_move_button">Next Move</string>
+    <string name="flashcard_initial_prompt">Select tags and click \"Next Move\" to start.</string>
+    <string name="flashcard_prompt">Can you do this move: \'%1$s\' in three different ways in and out of it?</string>
 
     <!-- SavedCombosScreen -->
     <string name="saved_combos_screen_title">Saved Combos</string>
     <string name="saved_combos_no_combos_message">No combos saved yet.</string>
     <string name="saved_combos_delete_combo_description">Delete Combo</string>
-    <string name="saved_combos_rename_dialog_title">Rename Combo</string>
-    <string name="saved_combos_rename_dialog_combo_name_label">Combo Name</string>
+    <string name="create_combo_fab_description">Create Combo</string>
+    <string name="combo_deleted_snackbar">Combo deleted</string>
+
+    <!-- CreateEditComboScreen -->
+    <string name="create_combo_title">Create New Combo</string>
+    <string name="edit_combo_title">Edit Combo</string>
+    <string name="save_combo_fab_description">Save Combo</string>
+    <string name="combo_name_label">Combo Name</string>
+    <string name="select_moves_title">Select Moves:</string>
+    <string name="move_selected_indicator">Move Selected</string>
+
+    <!-- MovesByTagScreen -->
+    <string name="moves_for_tag_title">Moves for \"%1$s\"</string>
+    <string name="no_moves_for_tag_message">No moves found for this tag.</string>
 
     <!-- Common Strings (to be reused across screens) -->
     <string name="common_add">Add</string>
