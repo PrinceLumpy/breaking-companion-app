@@ -1,6 +1,18 @@
 package com.princelumpy.breakvault.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -8,9 +20,40 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,11 +86,17 @@ fun ComboGeneratorScreen(
     var selectedGeneratorTags by remember { mutableStateOf(setOf<Tag>()) }
     var generatedComboText by remember { mutableStateOf("") }
     var currentGeneratedMoves by remember { mutableStateOf<List<Move>>(emptyList()) }
+    
+    // Revert to Dropdown Logic: null = Random, 1-6 = Fixed
     var selectedLength by remember { mutableStateOf<Int?>(null) }
-    val lengthOptions = listOf(null, 2, 3, 4, 5)
+    val lengthOptions = listOf(null) + (1..6).toList()
+
+    var allowRepeats by remember { mutableStateOf(false) }
 
     var showLengthWarningDialog by remember { mutableStateOf(false) }
     var warningDialogMessage by remember { mutableStateOf("") }
+    
+    // Dropdown expansion state
     var lengthDropdownExpanded by remember { mutableStateOf(false) }
 
     var currentMode by remember { mutableStateOf(GenerationMode.Random) }
@@ -98,7 +147,7 @@ fun ComboGeneratorScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TabRow(selectedTabIndex = currentMode.ordinal) {
-                GenerationMode.values().forEach { mode ->
+                GenerationMode.entries.forEach { mode ->
                     Tab(
                         selected = currentMode == mode,
                         onClick = { currentMode = mode },
@@ -109,7 +158,18 @@ fun ComboGeneratorScreen(
 
             when (currentMode) {
                 GenerationMode.Random -> {
-                    RandomModeUI(allTags, selectedGeneratorTags, onTagsChange = { selectedGeneratorTags = it }, selectedLength, onLengthChange = { selectedLength = it }, lengthDropdownExpanded, onDropdownExpand = { lengthDropdownExpanded = it }, lengthOptions)
+                    RandomModeUI(
+                        allTags = allTags,
+                        selectedTags = selectedGeneratorTags,
+                        onTagsChange = { selectedGeneratorTags = it },
+                        selectedLength = selectedLength,
+                        onLengthChange = { selectedLength = it },
+                        lengthDropdownExpanded = lengthDropdownExpanded,
+                        onDropdownExpand = { lengthDropdownExpanded = it },
+                        lengthOptions = lengthOptions,
+                        allowRepeats = allowRepeats,
+                        onAllowRepeatsChange = { allowRepeats = it }
+                    )
                 }
                 GenerationMode.Structured -> {
                     StructuredModeUI(allTags, structuredTagSequence, onSequenceChange = { structuredTagSequence = it })
@@ -123,10 +183,10 @@ fun ComboGeneratorScreen(
                     val comboMoves = when (currentMode) {
                         GenerationMode.Random -> {
                             // If no tags selected, use ALL tags
-                            val tagsToUse = if (selectedGeneratorTags.isNotEmpty()) selectedGeneratorTags else allTags.toSet()
+                            val tagsToUse = selectedGeneratorTags.ifEmpty { allTags.toSet() }
                             
                             if (tagsToUse.isNotEmpty()) {
-                                moveViewModel.generateComboFromTags(tagsToUse, selectedLength)
+                                moveViewModel.generateComboFromTags(tagsToUse, selectedLength, allowRepeats)
                             } else {
                                 generatedComboText = context.getString(R.string.combo_generator_no_tags_message)
                                 emptyList()
@@ -145,7 +205,10 @@ fun ComboGeneratorScreen(
                     if (comboMoves.isNotEmpty()) {
                         currentGeneratedMoves = comboMoves
                         generatedComboText = comboMoves.joinToString(separator = "  ->  ") { it.name }
-                        if (currentMode == GenerationMode.Random && selectedLength != null && selectedLength!! > comboMoves.size) {
+                        
+                        // Warning logic
+                        if (!allowRepeats && currentMode == GenerationMode.Random && selectedLength != null && selectedLength!! > comboMoves.size) {
+                            // User asked for more unique moves than available
                             warningDialogMessage = context.getString(R.string.combo_generator_length_warning_dialog_message, comboMoves.size)
                             showLengthWarningDialog = true
                         }
@@ -202,7 +265,9 @@ fun RandomModeUI(
     onLengthChange: (Int?) -> Unit,
     lengthDropdownExpanded: Boolean,
     onDropdownExpand: (Boolean) -> Unit,
-    lengthOptions: List<Int?>
+    lengthOptions: List<Int?>,
+    allowRepeats: Boolean,
+    onAllowRepeatsChange: (Boolean) -> Unit
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(id = R.string.combo_generator_select_tags_label), style = MaterialTheme.typography.titleMedium)
@@ -231,15 +296,30 @@ fun RandomModeUI(
             }
         }
 
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(1.25.dp))
 
+        // Controls Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(stringResource(id = R.string.combo_generator_number_of_moves_label), style = MaterialTheme.typography.titleMedium)
+            // Allow Repeats Toggle
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.combo_generator_allow_repeats_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Switch(
+                    checked = allowRepeats,
+                    onCheckedChange = onAllowRepeatsChange
+                )
+            }
 
+            // Dropdown (Takes up space but limited width naturally)
             ExposedDropdownMenuBox(
                 expanded = lengthDropdownExpanded,
                 onExpandedChange = onDropdownExpand,
@@ -312,7 +392,8 @@ fun StructuredModeUI(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = { onSequenceChange(tagSequence + selectedTag!!) }, enabled = selectedTag != null && tagSequence.size < 5) {
+            // Increased limit to 10
+            Button(onClick = { onSequenceChange(tagSequence + selectedTag!!) }, enabled = selectedTag != null && tagSequence.size < 10) {
                 Text(stringResource(id = R.string.combo_generator_add_to_sequence_button))
             }
 
@@ -333,7 +414,7 @@ fun StructuredModeUI(
             Text(stringResource(id = R.string.combo_generator_current_sequence_label), style = MaterialTheme.typography.titleMedium)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = tagSequence.map { it.name }.joinToString(" -> "),
+                    text = tagSequence.joinToString(" -> ") { it.name },
                     modifier = Modifier.padding(16.dp)
                 )
             }

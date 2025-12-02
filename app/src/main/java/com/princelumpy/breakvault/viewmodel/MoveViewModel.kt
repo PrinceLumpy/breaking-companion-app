@@ -37,7 +37,7 @@ interface IMoveViewModel {
     fun deleteMove(move: Move)
     fun updateTag(tagId: String, newName: String)
     fun deleteTag(tag: Tag)
-    fun generateComboFromTags(selectedTags: Set<Tag>, length: Int? = null): List<Move>
+    fun generateComboFromTags(selectedTags: Set<Tag>, length: Int? = null, allowRepeats: Boolean = false): List<Move>
     fun generateStructuredCombo(tagSequence: List<Tag>): List<Move>
     suspend fun getMovesForTag(tagId: String): List<Move>
     fun getFlashcardMove(excludedTags: Set<Tag>): Move?
@@ -71,7 +71,7 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
     }
 
     private val movesWithTagsObserver = Observer<List<MoveWithTags>> { data ->
-        if (data.isNullOrEmpty()) {
+        if (data.isEmpty()) {
             Log.d("MoveViewModel_Debug", "movesWithTags LiveData is EMPTY or NULL")
         } else {
             Log.d("MoveViewModel_Debug", "movesWithTags LiveData has ${data.size} items:")
@@ -182,26 +182,35 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
         }
     }
 
-    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?): List<Move> {
+    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?, allowRepeats: Boolean): List<Move> {
         val currentMovesWithTags = movesWithTags.value ?: return emptyList()
         if (selectedTags.isEmpty()) return emptyList()
 
         val selectedTagIds = selectedTags.map { it.id }.toSet()
+        // Only keep unique moves for the pool, unless allowRepeats is handled in selection
         val matchingMoves = currentMovesWithTags
             .filter { moveWithTags -> moveWithTags.tags.any { it.id in selectedTagIds } }
             .map { it.move }
+            .distinct() // Ensure pool is unique moves first
 
         if (matchingMoves.isEmpty()) return emptyList()
 
-        val effectiveLength = when {
-            length == null -> (2..5).random()
-            length < 2 -> 2
-            length > 5 -> 5
+        // Logic: Length between 1 and 6.
+        val targetLength = when {
+            length == null -> (1..6).random()
+            length < 1 -> 1
+            length > 6 -> 6
             else -> length
         }
 
-        val movesToTake = min(effectiveLength, matchingMoves.size)
-        return matchingMoves.shuffled().take(movesToTake)
+        return if (allowRepeats) {
+            // If repeats allowed, pick random move N times
+            List(targetLength) { matchingMoves.random() }
+        } else {
+            // If no repeats, we are limited by the pool size
+            val actualLength = min(targetLength, matchingMoves.size)
+            matchingMoves.shuffled().take(actualLength)
+        }
     }
 
     override fun saveCombo(comboName: String, moves: List<String>) {
@@ -231,7 +240,7 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
     override fun resetDatabase() {
         viewModelScope.launch(Dispatchers.IO) {
             db.clearAllTables()
-            AppDB.prepopulateDefaultTags(db)
+            AppDB.prepopulateExampleData(db)
         }
     }
 
@@ -247,7 +256,6 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
             tags = moveTagDao.getAllTagsList(),
             moveTagCrossRefs = moveTagDao.getAllMoveTagCrossRefsList(),
             savedCombos = savedComboDao.getAllSavedCombosList(),
-            savedComboMoveLinks = emptyList(),
             battleCombos = battleCombosOnly,
             battleTags = battleTags,
             battleComboTagCrossRefs = battleComboTagCrossRefs
@@ -267,7 +275,7 @@ class MoveViewModel(application: Application) : AndroidViewModel(application), I
             appData.battleTags.forEach { battleTagDao.insertBattleTag(it) }
             appData.battleComboTagCrossRefs.forEach { battleComboDao.insertBattleComboTagCrossRef(it) }
 
-            AppDB.prepopulateDefaultTags(db)
+            AppDB.prepopulateExampleData(db)
             true
         } catch (e: Exception) {
             Log.e("MoveViewModel", "Import failed", e)
@@ -310,7 +318,7 @@ class FakeMoveViewModel : IMoveViewModel {
     override fun deleteMove(move: Move) {}
     override fun updateTag(tagId: String, newName: String) {}
     override fun deleteTag(tag: Tag) {}
-    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?): List<Move> = emptyList()
+    override fun generateComboFromTags(selectedTags: Set<Tag>, length: Int?, allowRepeats: Boolean): List<Move> = emptyList()
     override fun generateStructuredCombo(tagSequence: List<Tag>): List<Move> {
         return tagSequence.mapNotNull { tag ->
             initialFakeMovesWithTags.find { it.tags.contains(tag) }?.move

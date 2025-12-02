@@ -57,7 +57,7 @@
     <string name="combo_generator_random_length_option">Random</string>
     <string name="combo_generator_combo_length_label">Combo Length</string>
     <string name="combo_generator_length_warning_dialog_message">Only %1$d moves are available with the selected tags. A combo of %1$d moves has been generated.</string>
-    <string name="combo_generator_no_moves_found_message">No moves found matching the selected tags. Try a different selection or \'Random\' length.</string>
+    <string name="combo_generator_no_moves_found_message">No moves found matching the selected tags. Add some moves.</string>
     <string name="combo_generator_select_at_least_one_tag_message">Please select at least one tag to generate a combo.</string>
     <string name="combo_generator_generate_combo_button">Generate Combo</string>
     <string name="combo_generator_generated_combo_label">Generated Combo:</string>
@@ -73,6 +73,7 @@
     <string name="combo_generator_clear_sequence_button_description">Clear Sequence</string>
     <string name="combo_generator_undo_button">Undo</string>
     <string name="combo_generator_undo_button_description">Remove last tag</string>
+    <string name="combo_generator_allow_repeats_label">Allow Repeats</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Settings</string>

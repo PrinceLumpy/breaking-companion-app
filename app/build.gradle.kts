@@ -73,16 +73,19 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json) // Added Kotlinx Serialization JSON library
 
-    // Test Implementations - Ensure these are not accidentally used in release code
+    // Test Implementations
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.core.testing)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    // Remove androidx.compose.ui, androidx.compose.ui.graphics, androidx.compose.ui.tooling.preview if only for preview
-    // Retained for now as they might be used directly, but usually covered by Material3 or BOM
+    
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
