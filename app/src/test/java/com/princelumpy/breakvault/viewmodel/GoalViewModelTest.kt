@@ -5,9 +5,9 @@ import android.util.Log
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.MutableLiveData
 import com.princelumpy.breakvault.data.AppDB
-import com.princelumpy.breakvault.data.Goal
-import com.princelumpy.breakvault.data.GoalDao
-import com.princelumpy.breakvault.data.GoalStage
+import com.princelumpy.breakvault.data.model.goal.Goal
+import com.princelumpy.breakvault.data.dao.GoalDao
+import com.princelumpy.breakvault.data.model.goal.GoalStage
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +54,7 @@ class GoalViewModelTest {
 
         // Mock DAO returns
         every { goalDao.getAllActiveGoals() } returns activeGoalsLiveData
-        every { goalDao.getGoalByIdLive(any()) } returns goalByIdLiveData
+        every { goalDao.getGoalLive(any()) } returns goalByIdLiveData
         every { goalDao.getStagesForGoal(any()) } returns stagesLiveData
 
         viewModel = GoalViewModel(app)
@@ -150,7 +150,7 @@ class GoalViewModelTest {
         val unit = "reps"
         
         val parentGoal = Goal(id = goalId, lastUpdated = 1000)
-        coEvery { goalDao.getGoalById(goalId) } returns parentGoal
+        coEvery { goalDao.getGoal(goalId) } returns parentGoal
 
         viewModel.addGoalStage(goalId, name, target, unit)
         advanceUntilIdle()
@@ -182,7 +182,7 @@ class GoalViewModelTest {
         )
         
         val parentGoal = Goal(id = goalId)
-        coEvery { goalDao.getGoalById(goalId) } returns parentGoal
+        coEvery { goalDao.getGoal(goalId) } returns parentGoal
 
         // Case 1: Add 3 (Result 8)
         viewModel.incrementStageProgress(stage, 3)

@@ -1,9 +1,20 @@
 package com.princelumpy.breakvault.ui.screens
 
-import android.util.Log
+
+import AppStyleDefaults
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,107 +22,60 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.princelumpy.breakvault.data.MoveListTag
-import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
-import com.princelumpy.breakvault.viewmodel.IMoveViewModel
-import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
-import com.princelumpy.breakvault.viewmodel.MoveViewModel
 import com.princelumpy.breakvault.R
-import kotlinx.coroutines.launch
+import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
+import com.princelumpy.breakvault.viewmodel.AddEditMoveViewModel
+import com.princelumpy.breakvault.viewmodel.FakeAddEditMoveViewModel
+import com.princelumpy.breakvault.viewmodel.IAddEditMoveViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditMoveScreen(
     navController: NavController,
     moveId: String?,
-    moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
+    moveViewModel: IAddEditMoveViewModel = viewModel<AddEditMoveViewModel>()
 ) {
-    var moveName by remember { mutableStateOf("") }
-    var newTagName by remember { mutableStateOf("") }
-    val allTags by moveViewModel.allTags.observeAsState(initial = emptyList())
-    var selectedMoveListTags by remember { mutableStateOf(setOf<MoveListTag>()) }
+    val uiState by moveViewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current // For Snackbar messages
-
-    // State to track auto-selection of newly added moveListTags
-    var pendingAutoSelectTagName by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(key1 = moveId) {
-        if (moveId != null) {
-            val moveBeingEdited = moveViewModel.getMoveForEditing(moveId)
-            if (moveBeingEdited != null) {
-                moveName = moveBeingEdited.move.name
-                selectedMoveListTags = moveBeingEdited.moveListTags.toSet()
-            } else {
-                Log.w("AddEditMoveScreen", "Could not find move with ID $moveId for editing.")
-            }
-        } else {
-            moveName = ""
-            selectedMoveListTags = setOf()
-        }
+        moveViewModel.loadMove(moveId)
     }
 
-    // Auto-select logic: When allTags updates, check if we are waiting for a moveListTag to appear
-    LaunchedEffect(allTags, pendingAutoSelectTagName) {
-        pendingAutoSelectTagName?.let { tagName ->
-            val foundTag = allTags.find { it.name.equals(tagName, ignoreCase = true) }
-            if (foundTag != null) {
-                selectedMoveListTags = selectedMoveListTags + foundTag
-                pendingAutoSelectTagName = null // Reset
-            }
-        }
-    }
-
-    val saveMoveAction: () -> Unit = {
-        if (moveName.isNotBlank()) {
-            if (moveId == null) {
-                moveViewModel.addMove(moveName, selectedMoveListTags.toList())
-            } else {
-                moveViewModel.updateMoveAndTags(moveId, moveName, selectedMoveListTags.toList())
-            }
-            focusManager.clearFocus()
-            navController.popBackStack()
-        } else {
-            Log.w("AddEditMoveScreen", "Validation failed: Move name cannot be blank.")
-            scope.launch {
-                snackbarHostState.showSnackbar(message = context.getString(R.string.add_edit_move_error_blank_name))
-            }
-        }
-    }
-
-    val addMoveListTagAction: () -> Unit = {
-        if (newTagName.isNotBlank()) {
-            val trimmedTagName = newTagName.trim()
-            if (!allTags.any { it.name.equals(trimmedTagName, ignoreCase = true) }) {
-                moveViewModel.addTag(trimmedTagName)
-                pendingAutoSelectTagName = trimmedTagName // Queue for auto-selection
-                newTagName = "" // Clear input after successful add
-            } else {
-                Log.w("AddEditMoveScreen", "Validation failed: MoveListTag '$trimmedTagName' already exists.")
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = context.getString(R.string.add_edit_move_error_tag_exists, trimmedTagName)
-                    )
-                }
-                newTagName = "" // Clear input after attempting to add existing moveListTag
-            }
-            focusManager.clearFocus()
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            moveViewModel.onSnackbarMessageShown()
         }
     }
 
@@ -119,96 +83,116 @@ fun AddEditMoveScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(if (moveId == null) stringResource(id = R.string.add_edit_move_add_new_move_title) else stringResource(id = R.string.add_edit_move_edit_move_title)) },
+                title = {
+                    Text(
+                        if (uiState.isNewMove) stringResource(id = R.string.add_edit_move_add_new_move_title) else stringResource(
+                            id = R.string.add_edit_move_edit_move_title
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back_button_description))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(id = R.string.common_back_button_description)
+                        )
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = saveMoveAction) {
-                Icon(Icons.Filled.Done, contentDescription = stringResource(id = R.string.add_edit_move_save_move_fab_description))
+            FloatingActionButton(onClick = {
+                moveViewModel.saveMove {
+                    focusManager.clearFocus()
+                    navController.popBackStack()
+                }
+            }) {
+                Icon(
+                    Icons.Filled.Save,
+                    contentDescription = stringResource(id = R.string.add_edit_move_save_move_fab_description)
+                )
             }
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(AppStyleDefaults.SpacingLarge)
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize()
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) { focusManager.clearFocus() }, // Hide keyboard on tap outside
+                ) { focusManager.clearFocus() },
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingLarge)
         ) {
             OutlinedTextField(
-                value = moveName,
-                onValueChange = { 
-                    if (it.length <= 100) {
-                        moveName = it 
-                    }
-                },
+                value = uiState.moveName,
+                onValueChange = { moveViewModel.onMoveNameChange(it) },
                 label = { Text(stringResource(id = R.string.add_edit_move_move_name_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { saveMoveAction() })
+                keyboardActions = KeyboardActions(onDone = { moveViewModel.saveMove { navController.popBackStack() } })
             )
 
-            Text(stringResource(id = R.string.add_edit_move_select_tags_label), style = MaterialTheme.typography.titleMedium)
-            if (allTags.isEmpty() && newTagName.isBlank()) {
-                Text(stringResource(id = R.string.add_edit_move_no_tags_available_message), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(id = R.string.add_edit_move_select_tags_label),
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (uiState.allTags.isEmpty() && uiState.newTagName.isBlank()) {
+                Text(
+                    stringResource(id = R.string.add_edit_move_no_tags_available_message),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingMedium),
+                verticalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingSmall)
             ) {
-                allTags.forEach { tag ->
+                uiState.allTags.forEach { tag ->
                     FilterChip(
-                        selected = selectedMoveListTags.any { it.id == tag.id },
-                        onClick = {
-                            selectedMoveListTags = if (selectedMoveListTags.any { it.id == tag.id }) {
-                                selectedMoveListTags.filterNot { selectedTag -> selectedTag.id == tag.id }.toSet()
-                            } else {
-                                selectedMoveListTags + tag
-                            }
-                        },
+                        selected = uiState.selectedTags.any { it.id == tag.id },
+                        onClick = { moveViewModel.onTagSelected(tag) },
                         label = { Text(tag.name) },
-                        leadingIcon = if (selectedMoveListTags.any { it.id == tag.id }) {
-                            { Icon(Icons.Filled.Done, stringResource(id = R.string.add_edit_move_selected_chip_description), Modifier.size(FilterChipDefaults.IconSize)) }
-                        } else { null }
+                        leadingIcon = if (uiState.selectedTags.any { it.id == tag.id }) {
+                            {
+                                Icon(
+                                    Icons.Filled.Done,
+                                    stringResource(id = R.string.add_edit_move_selected_chip_description),
+                                    Modifier.size(FilterChipDefaults.IconSize)
+                                )
+                            }
+                        } else {
+                            null
+                        }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingMedium))
 
-            Text(stringResource(id = R.string.add_edit_move_add_new_tag_label), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(id = R.string.add_edit_move_add_new_tag_label),
+                style = MaterialTheme.typography.titleMedium
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingMedium)
             ) {
                 OutlinedTextField(
-                    value = newTagName,
-                    onValueChange = { 
-                        if (it.length <= 30) {
-                            newTagName = it 
-                        }
-                    },
+                    value = uiState.newTagName,
+                    onValueChange = { moveViewModel.onNewTagNameChange(it) },
                     label = { Text(stringResource(id = R.string.add_edit_move_new_tag_name_label)) },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { addMoveListTagAction() })
+                    keyboardActions = KeyboardActions(onDone = { moveViewModel.addTag() })
                 )
-                Button(onClick = addMoveListTagAction) {
+                Button(onClick = { moveViewModel.addTag() }) {
                     Text(stringResource(id = R.string.common_add))
                 }
             }
@@ -223,7 +207,7 @@ fun AddEditMoveScreenPreview_AddMode() {
         AddEditMoveScreen(
             navController = rememberNavController(),
             moveId = null,
-            moveViewModel = FakeMoveViewModel() // Use Fake ViewModel
+            moveViewModel = FakeAddEditMoveViewModel() // Use Fake ViewModel
         )
     }
 }
@@ -235,7 +219,7 @@ fun AddEditMoveScreenPreview_EditMode() {
         AddEditMoveScreen(
             navController = rememberNavController(),
             moveId = "previewEditId", // Use the ID faked in FakeMoveViewModel
-            moveViewModel = FakeMoveViewModel() // Use Fake ViewModel
+            moveViewModel = FakeAddEditMoveViewModel() // Use Fake ViewModel
         )
     }
 }

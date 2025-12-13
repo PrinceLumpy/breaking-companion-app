@@ -1,33 +1,37 @@
 # UI/UX Guidelines (UI Agent)
 
 ## Tech Stack
+
 - **Framework:** Jetpack Compose.
 - **Design System:** Material3 (`androidx.compose.material3`).
 - **Icons:** Material Icons Extended.
 
 ## Common Patterns
-1.  **Screen Structure:**
+
+1. **Screen Structure:**
     - Always use `Scaffold` for top-level screens.
     - Use `TopAppBar` for navigation headers.
     - Use `SnackbarHost` for transient messages (success/error).
 
-2.  **Lists & Layouts:**
+2. **Lists & Layouts:**
     - Use `LazyColumn` for scrollable lists.
-    - Use `FlowRow` (from `androidx.compose.foundation.layout`) for displaying chips/moveListTags.
+    - Use `FlowRow` (from `androidx.compose.foundation.layout`) for displaying chips/moveTags.
     - Use `Card` or `ListItem` for individual data entries.
 
-3.  **Input Forms:**
+3. **Input Forms:**
     - `OutlinedTextField` for text input.
-    - `FilterChip` or `InputChip` for moveListTag selection.
+    - `FilterChip` or `InputChip` for moveTag selection.
     - `FloatingActionButton` (FAB) for primary creation actions.
-    - **Dialogs**: Use `AlertDialog` for confirmations (delete/archive) and simple inline edits (e.g., adding progress).
+    - **Dialogs**: Use `AlertDialog` for confirmations (delete/archive) and simple inline edits (
+      e.g., adding progress).
 
-4.  **State Management:**
+4. **State Management:**
     - Observe ViewModel LiveData using `observeAsState()`.
     - Hoist state to the Screen composable level; pass lambdas down to sub-components.
     - Use `LaunchedEffect` for one-time events (e.g., loading data, navigation side-effects).
 
 ## Goal Tracking (New)
+
 - **Goals Screen**:
     - Displays a list of active goals in Cards.
     - Each card shows the title and an **overall progress bar** (aggregated from stages).
@@ -38,7 +42,7 @@
     - Allows editing the Title.
     - Displays "Overall Progress" bar.
     - Lists "Stages / Milestones".
-    - **Add Stage**: Navigates to a dedicated `AddEditGoalStageScreen`.
+    - **Add Stage**: Navigates to a dedicated `CreateEditGoalStageScreen`.
     - **Stage Item**: Shows stage progress (e.g., "5/10 reps").
         - Includes a **"+" button** to quickly add reps via a popup dialog.
         - Includes an **Edit (pencil)** button to navigate to the detail edit screen.
@@ -51,11 +55,13 @@
     - Includes a Delete action in the top bar if editing an existing stage.
 
 ## Theming
+
 - Use `MaterialTheme.colorScheme` for colors (e.g., `primary`, `error`, `surface`).
 - Use `MaterialTheme.typography` for text styles.
 - Avoid hardcoded colors; defined in `ui/theme/Color.kt` if custom are needed.
 
 ## Example Snippet
+
 ```kotlin
 @Composable
 fun ExampleScreen(viewModel: MyViewModel = viewModel()) {

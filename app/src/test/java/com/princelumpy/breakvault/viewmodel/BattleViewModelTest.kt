@@ -5,13 +5,12 @@ import android.util.Log
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.MutableLiveData
 import com.princelumpy.breakvault.data.AppDB
-import com.princelumpy.breakvault.data.BattleCombo
-import com.princelumpy.breakvault.data.BattleComboDao
-import com.princelumpy.breakvault.data.BattleComboWithTags
-import com.princelumpy.breakvault.data.BattleTag
-import com.princelumpy.breakvault.data.BattleTagDao
-import com.princelumpy.breakvault.data.EnergyLevel
-import com.princelumpy.breakvault.data.TrainingStatus
+import com.princelumpy.breakvault.data.dao.BattleDao
+import com.princelumpy.breakvault.data.model.battlecombo.BattleCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleComboWithTags
+import com.princelumpy.breakvault.data.model.battlecombo.BattleTag
+import com.princelumpy.breakvault.data.model.battlecombo.EnergyLevel
+import com.princelumpy.breakvault.data.model.battlecombo.TrainingStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -41,10 +40,8 @@ class BattleViewModelTest {
 
     private val app = mockk<Application>(relaxed = true)
     private val db = mockk<AppDB>()
-    private val battleComboDao = mockk<BattleComboDao>(relaxed = true)
-    private val battleTagDao = mockk<BattleTagDao>(relaxed = true)
-
-    private lateinit var viewModel: BattleViewModel
+    private val battleDao = mockk<BattleDao>(relaxed = true)
+    private lateinit var viewModel: BattleComboListViewModel
 
     private val battleCombosLiveData = MutableLiveData<List<BattleComboWithTags>>()
     private val battleTagsLiveData = MutableLiveData<List<BattleTag>>()
@@ -61,14 +58,13 @@ class BattleViewModelTest {
         // Mock DB
         mockkObject(AppDB)
         every { AppDB.getDatabase(any()) } returns db
-        every { db.battleComboDao() } returns battleComboDao
-        every { db.battleTagDao() } returns battleTagDao
+        every { db.battleDao() } returns battleDao
 
         // Mock LiveData
-        every { battleComboDao.getAllBattleCombos() } returns battleCombosLiveData
-        every { battleTagDao.getAllBattleTags() } returns battleTagsLiveData
+        every { battleDao.getAllBattleCombosWithTags() } returns battleCombosLiveData
+        every { battleDao.getAllBattleTags() } returns battleTagsLiveData
 
-        viewModel = BattleViewModel(app)
+        viewModel = BattleComboListViewModel(app)
     }
 
     @After
@@ -92,7 +88,7 @@ class BattleViewModelTest {
 
         // Then
         coVerify {
-            battleComboDao.updateBattleCombo(match { updatedCombo ->
+            battleDao.updateBattleCombo(match { updatedCombo ->
                 updatedCombo.id == "1" && updatedCombo.isUsed == true
             })
         }
@@ -105,7 +101,7 @@ class BattleViewModelTest {
         advanceUntilIdle()
 
         // Then
-        coVerify { battleComboDao.resetAllBattleCombosUsage() }
+        coVerify { battleDao.resetAllBattleCombosUsage() }
     }
 
     @Test
@@ -115,10 +111,10 @@ class BattleViewModelTest {
         val energy = EnergyLevel.HIGH
         val status = TrainingStatus.READY
         val tagName = "Power"
-        val existingTag = BattleTag(id = "moveListTag-1", name = tagName)
+        val existingTag = BattleTag(id = "moveTag-1", name = tagName)
 
-        // Mock: MoveListTag exists
-        coEvery { battleTagDao.getBattleTagByName(tagName) } returns existingTag
+        // Mock: MoveTag exists
+        coEvery { battleDao.getBattleTagByName(tagName) } returns existingTag
 
         // When
         viewModel.addBattleCombo(description, energy, status, listOf(tagName))
@@ -127,14 +123,14 @@ class BattleViewModelTest {
         // Then
         // 1. Verify Combo Insert
         coVerify {
-            battleComboDao.insertBattleCombo(match {
+            battleDao.insertBattleCombo(match {
                 it.description == description && it.energy == energy
             })
         }
-        // 2. Verify CrossRef Insert (linking combo to existing moveListTag)
+        // 2. Verify CrossRef Insert (linking combo to existing moveTag)
         coVerify {
-            battleComboDao.link(match {
-                it.battleTagId == "moveListTag-1"
+            battleDao.link(match {
+                it.battleTagId == "moveTag-1"
             })
         }
     }
@@ -143,21 +139,21 @@ class BattleViewModelTest {
     fun `addBattleCombo creates new tag if not found`() = runTest {
         // Given
         val tagName = "New Style"
-        // Mock: MoveListTag does NOT exist
-        coEvery { battleTagDao.getBattleTagByName(tagName) } returns null
+        // Mock: MoveTag does NOT exist
+        coEvery { battleDao.getBattleTagByName(tagName) } returns null
 
         // When
         viewModel.addBattleCombo("Desc", EnergyLevel.LOW, TrainingStatus.TRAINING, listOf(tagName))
         advanceUntilIdle()
 
         // Then
-        // 1. Verify MoveListTag Creation
+        // 1. Verify MoveTag Creation
         coVerify {
-            battleTagDao.insertBattleTag(match { it.name == tagName })
+            battleDao.insertBattleTag(match { it.name == tagName })
         }
         // 2. Verify CrossRef Insert
         coVerify {
-            battleComboDao.link(any())
+            battleDao.link(any())
         }
     }
 }

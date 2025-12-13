@@ -49,9 +49,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.princelumpy.breakvault.data.Tag
-import com.princelumpy.breakvault.ui.screens.AddEditBattleComboScreen
-import com.princelumpy.breakvault.ui.screens.AddEditGoalStageScreen
-import com.princelumpy.breakvault.ui.screens.AddEditMoveScreen
+import com.princelumpy.breakvault.ui.screens.CreateEditBattleComboScreen
+import com.princelumpy.breakvault.ui.screens.CreateEditGoalStageScreen
+import com.princelumpy.breakvault.ui.screens.CreateEditMoveScreen
 import com.princelumpy.breakvault.ui.screens.ArchivedGoalsScreen
 import com.princelumpy.breakvault.ui.screens.BattleScreen
 import com.princelumpy.breakvault.ui.screens.BattleTagListScreen
@@ -75,26 +75,33 @@ sealed class Screen(
     val icon: ImageVector? = null
 ) {
     // Top Level Screens (Show Bottom Bar)
-    object MoveList : Screen("move_list", R.string.screen_label_moves, Icons.AutoMirrored.Filled.List)
-    object SavedCombos : Screen("saved_combos", R.string.screen_label_saved_combos, Icons.Filled.Favorite)
+    object MoveList :
+        Screen("move_list", R.string.screen_label_moves, Icons.AutoMirrored.Filled.List)
+
+    object SavedCombos :
+        Screen("saved_combos", R.string.screen_label_saved_combos, Icons.Filled.Favorite)
+
     object Goals : Screen("goals", R.string.screen_label_goals, Icons.Filled.Flag)
     object Timer : Screen("timer", R.string.screen_label_timer, Icons.Filled.Timer)
-    object BattleArena : Screen("battle_arena", R.string.screen_label_battle_arena, Icons.Filled.FlashOn)
+    object Battle :
+        Screen("battle_combo_list", R.string.screen_label_battle_list, Icons.Filled.FlashOn)
 
     // Other Screens (Hide Bottom Bar)
     object TagList : Screen("tag_list")
     object ArchivedGoals : Screen("archived_goals")
     object Settings : Screen("settings", R.string.screen_label_settings, Icons.Filled.Settings)
-    object ComboGenerator : Screen("combo_generator", R.string.screen_label_combo_generator, Icons.Filled.PlayArrow)
+    object ComboGenerator :
+        Screen("combo_generator", R.string.screen_label_combo_generator, Icons.Filled.PlayArrow)
+
     object Flashcard : Screen("flashcard", R.string.screen_label_flashcards, Icons.Filled.School)
-    object AddEditMove : Screen("add_edit_move")
+    object CreateEditMove : Screen("add_edit_move")
     object CreateEditCombo : Screen("create_edit_combo")
     object MovesByTag : Screen("moves_by_tag")
-    object AddEditBattleCombo : Screen("add_edit_battle_combo")
+    object CreateEditBattleCombo : Screen("add_edit_battle_combo")
     object BattleTagList : Screen("battle_tag_list")
     object EditGoal : Screen("edit_goal")
-    object AddEditGoalStage : Screen("add_edit_goal_stage")
-    
+    object CreateEditGoalStage : Screen("add_edit_goal_stage")
+
     fun withOptionalArgs(map: Map<String, String>): String {
         return buildString {
             append(route)
@@ -121,7 +128,7 @@ val bottomNavItems = listOf(
     Screen.SavedCombos,
     Screen.Goals,
     Screen.Timer,
-    Screen.BattleArena
+    Screen.BattleComboList
 )
 
 class MainActivity : ComponentActivity() {
@@ -159,7 +166,7 @@ fun MainAppScreen() {
                     )
                 }
                 HorizontalDivider()
-                
+
                 // Practice Tags
                 NavigationDrawerItem(
                     label = { Text(stringResource(id = R.string.drawer_item_practice_tags)) },
@@ -230,7 +237,12 @@ fun MainAppScreen() {
                             } == true
 
                             NavigationBarItem(
-                                icon = { Icon(screen.icon ?: Icons.Filled.Build, contentDescription = itemLabel) },
+                                icon = {
+                                    Icon(
+                                        screen.icon ?: Icons.Filled.Build,
+                                        contentDescription = itemLabel
+                                    )
+                                },
                                 label = { Text(itemLabel) },
                                 selected = isSelected,
                                 onClick = {
@@ -265,7 +277,7 @@ fun MainAppScreen() {
                 composable(Screen.Flashcard.route) { FlashcardScreen(navController = navController) }
 
                 composable(
-                    route = Screen.AddEditMove.route + "?moveId={moveId}",
+                    route = Screen.CreateEditMove.route + "?moveId={moveId}",
                     arguments = listOf(navArgument("moveId") {
                         type = NavType.StringType
                         nullable = true
@@ -273,7 +285,7 @@ fun MainAppScreen() {
                     })
                 ) { backStackEntry ->
                     val moveId = backStackEntry.arguments?.getString("moveId")
-                    AddEditMoveScreen(navController = navController, moveId = moveId)
+                    CreateEditMoveScreen(navController = navController, moveId = moveId)
                 }
 
                 composable(
@@ -287,7 +299,7 @@ fun MainAppScreen() {
                     val comboId = backStackEntry.arguments?.getString("comboId")
                     CreateEditComboScreen(navController = navController, comboId = comboId)
                 }
-                
+
                 composable(
                     route = Screen.EditGoal.route + "/{goalId}",
                     arguments = listOf(navArgument("goalId") {
@@ -297,9 +309,9 @@ fun MainAppScreen() {
                     val goalId = backStackEntry.arguments?.getString("goalId") ?: ""
                     EditGoalScreen(navController = navController, goalId = goalId)
                 }
-                
+
                 composable(
-                    route = Screen.AddEditGoalStage.route + "/{goalId}?stageId={stageId}",
+                    route = Screen.CreateEditGoalStage.route + "/{goalId}?stageId={stageId}",
                     arguments = listOf(
                         navArgument("goalId") { type = NavType.StringType },
                         navArgument("stageId") {
@@ -311,7 +323,11 @@ fun MainAppScreen() {
                 ) { backStackEntry ->
                     val goalId = backStackEntry.arguments?.getString("goalId") ?: ""
                     val stageId = backStackEntry.arguments?.getString("stageId")
-                    AddEditGoalStageScreen(navController = navController, goalId = goalId, stageId = stageId)
+                    CreateEditGoalStageScreen(
+                        navController = navController,
+                        goalId = goalId,
+                        stageId = stageId
+                    )
                 }
 
                 composable(
@@ -327,11 +343,11 @@ fun MainAppScreen() {
                 }
 
                 // --- Battle Mode Routes ---
-                composable(Screen.BattleArena.route) { BattleScreen(navController = navController) }
+                composable(Screen.BattleComboList.route) { BattleScreen(navController = navController) }
                 composable(Screen.BattleTagList.route) { BattleTagListScreen(navController = navController) }
-                
+
                 composable(
-                    route = Screen.AddEditBattleCombo.route + "?comboId={comboId}",
+                    route = Screen.CreateEditBattleCombo.route + "?comboId={comboId}",
                     arguments = listOf(navArgument("comboId") {
                         type = NavType.StringType
                         nullable = true
@@ -339,7 +355,7 @@ fun MainAppScreen() {
                     })
                 ) { backStackEntry ->
                     val comboId = backStackEntry.arguments?.getString("comboId")
-                    AddEditBattleComboScreen(navController = navController, comboId = comboId)
+                    CreateEditBattleComboScreen(navController = navController, comboId = comboId)
                 }
             }
         }

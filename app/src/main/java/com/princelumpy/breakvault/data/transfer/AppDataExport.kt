@@ -1,14 +1,14 @@
 package com.princelumpy.breakvault.data.transfer
 
-import com.princelumpy.breakvault.data.BattleCombo
-import com.princelumpy.breakvault.data.BattleComboTagCrossRef
-import com.princelumpy.breakvault.data.BattleTag
-import com.princelumpy.breakvault.data.Goal
-import com.princelumpy.breakvault.data.GoalStage
-import com.princelumpy.breakvault.data.Move
-import com.princelumpy.breakvault.data.MoveTag
-import com.princelumpy.breakvault.data.MoveTagCrossRef
-import com.princelumpy.breakvault.data.SavedCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleComboTagCrossRef
+import com.princelumpy.breakvault.data.model.battlecombo.BattleTag
+import com.princelumpy.breakvault.data.model.goal.Goal
+import com.princelumpy.breakvault.data.model.goal.GoalStage
+import com.princelumpy.breakvault.data.model.move.Move
+import com.princelumpy.breakvault.data.model.move.MoveTag
+import com.princelumpy.breakvault.data.model.move.MoveTagCrossRef
+import com.princelumpy.breakvault.data.model.savedcombo.SavedCombo
 import kotlinx.serialization.Serializable
 
 @Serializable

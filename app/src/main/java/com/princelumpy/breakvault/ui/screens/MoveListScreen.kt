@@ -1,7 +1,9 @@
 package com.princelumpy.breakvault.ui.screens
 
+import AppStyleDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -19,6 +23,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,44 +32,42 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.princelumpy.breakvault.R
 import com.princelumpy.breakvault.Screen
-import com.princelumpy.breakvault.data.Move
-import com.princelumpy.breakvault.data.MoveWithTags
-import com.princelumpy.breakvault.data.MoveListTag
+import com.princelumpy.breakvault.data.model.move.Move
+import com.princelumpy.breakvault.data.model.move.MoveTag
+import com.princelumpy.breakvault.data.model.move.MoveWithTags
 import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
-import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
-import com.princelumpy.breakvault.viewmodel.IMoveViewModel
-import com.princelumpy.breakvault.viewmodel.MoveViewModel
+import com.princelumpy.breakvault.viewmodel.MoveListViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoveListScreen(
     navController: NavController,
-    moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
+    moveListViewModel: MoveListViewModel = viewModel()
 ) {
-    val movesList by moveViewModel.movesWithTags.observeAsState(initial = emptyList())
-    var moveToDelete by remember { mutableStateOf<MoveWithTags?>(null) }
+    val uiState by moveListViewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            if (movesList.isNotEmpty()) {
+            if (uiState.moves.isNotEmpty()) {
                 FloatingActionButton(onClick = { navController.navigate(Screen.AddEditMove.route) }) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.move_list_add_move_button))
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(id = R.string.move_list_add_move_button)
+                    )
                 }
             }
         }
@@ -72,20 +76,35 @@ fun MoveListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Actions (Combo Generator)
             Button(
                 onClick = { navController.navigate(Screen.ComboGenerator.route) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppStyleDefaults.SpacingLarge)
             ) {
                 Text(stringResource(id = R.string.move_list_generate_combo_button))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingLarge))
+            if (uiState.allTags.isNotEmpty()) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = AppStyleDefaults.SpacingLarge),
+                    horizontalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingSmall)
+                ) {
+                    items(uiState.allTags) { tag ->
+                        FilterChip(
+                            selected = uiState.selectedTags.contains(tag.name),
+                            onClick = { moveListViewModel.onTagSelected(tag.name) },
+                            label = { Text(tag.name) }
+                        )
+                    }
+                }
+            }
 
-            if (movesList.isEmpty()) {
+            Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingSmall))
+
+            if (uiState.moves.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -97,33 +116,33 @@ fun MoveListScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Add your first move to get started!",
+                        text = stringResource(id = R.string.move_list_no_moves_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = AppStyleDefaults.SpacingMedium)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingLarge))
                     Button(onClick = { navController.navigate(Screen.AddEditMove.route) }) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.padding(4.dp))
+                        Spacer(modifier = Modifier.padding(AppStyleDefaults.SpacingSmall))
                         Text(stringResource(id = R.string.move_list_add_move_button))
                     }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = AppStyleDefaults.SpacingLarge),
+                    verticalArrangement = Arrangement.spacedBy(AppStyleDefaults.SpacingMedium)
                 ) {
-                    items(movesList, key = { it.move.id }) { moveWithTags ->
+                    items(uiState.moves, key = { it.move.id }) { moveWithTags ->
                         MoveCard(
                             moveWithTags = moveWithTags,
                             onEditClick = { moveId ->
                                 navController.navigate(Screen.AddEditMove.withOptionalArgs(mapOf("moveId" to moveId)))
                             },
-                            onDeleteClick = { mwt ->
-                                moveToDelete = mwt
-                            }
+                            onDeleteClick = { moveListViewModel.onMoveDeleteClicked(moveWithTags) }
                         )
                     }
                 }
@@ -131,24 +150,28 @@ fun MoveListScreen(
         }
     }
 
-    moveToDelete?.let { moveWithTagsToDelete ->
+    uiState.moveToDelete?.let { moveWithTagsToDelete ->
         AlertDialog(
-            onDismissRequest = { moveToDelete = null },
+            onDismissRequest = { moveListViewModel.onCancelMoveDelete() },
             title = { Text(stringResource(id = R.string.common_confirm_deletion_title)) },
-            text = { Text(stringResource(id = R.string.move_list_delete_confirmation_message, moveWithTagsToDelete.move.name)) },
+            text = {
+                Text(
+                    stringResource(
+                        id = R.string.move_list_delete_confirmation_message,
+                        moveWithTagsToDelete.move.name
+                    )
+                )
+            },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        moveViewModel.deleteMove(moveWithTagsToDelete.move)
-                        moveToDelete = null
-                    },
+                    onClick = { moveListViewModel.onConfirmMoveDelete() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text(stringResource(id = R.string.common_delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { moveToDelete = null }) {
+                TextButton(onClick = { moveListViewModel.onCancelMoveDelete() }) {
                     Text(stringResource(id = R.string.common_cancel))
                 }
             }
@@ -160,24 +183,27 @@ fun MoveListScreen(
 fun MoveCard(
     moveWithTags: MoveWithTags,
     onEditClick: (String) -> Unit,
-    onDeleteClick: (MoveWithTags) -> Unit
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = AppStyleDefaults.SpacingSmall)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = AppStyleDefaults.SpacingLarge,
+                    vertical = AppStyleDefaults.SpacingMedium
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = moveWithTags.move.name, style = MaterialTheme.typography.titleMedium)
-                if (moveWithTags.moveListTags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                if (moveWithTags.moveTags.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingSmall))
                     Text(
-                        text = moveWithTags.moveListTags.joinToString(", ") { it.name },
+                        text = moveWithTags.moveTags.joinToString(", ") { it.name },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -186,7 +212,7 @@ fun MoveCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End,
-                modifier = Modifier.padding(start = 8.dp)
+                modifier = Modifier.padding(start = AppStyleDefaults.SpacingMedium)
             ) {
                 IconButton(onClick = { onEditClick(moveWithTags.move.id) }) {
                     Icon(
@@ -195,7 +221,7 @@ fun MoveCard(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-                IconButton(onClick = { onDeleteClick(moveWithTags) }) {
+                IconButton(onClick = { onDeleteClick() }) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = stringResource(id = R.string.move_card_delete_move_description),
@@ -211,7 +237,7 @@ fun MoveCard(
 @Composable
 fun MoveListScreenPreview() {
     ComboGeneratorTheme {
-        MoveListScreen(navController = rememberNavController(), moveViewModel = FakeMoveViewModel())
+        MoveListScreen(navController = rememberNavController(), moveListViewModel = viewModel())
     }
 }
 
@@ -220,8 +246,9 @@ fun MoveListScreenPreview() {
 fun MoveCardPreview() {
     ComboGeneratorTheme {
         val previewMove = Move(id = "prev1", name = "Preview Jab")
-        val previewMoveListTags = listOf(MoveListTag(id = "t1", name = "Fast"), MoveListTag(id = "t2", name = "Setup"))
-        val moveWithTags = MoveWithTags(move = previewMove, moveListTags = previewMoveListTags)
+        val previewTags =
+            listOf(MoveTag(id = "t1", name = "Fast"), MoveTag(id = "t2", name = "Setup"))
+        val moveWithTags = MoveWithTags(move = previewMove, moveTags = previewTags)
         MoveCard(
             moveWithTags = moveWithTags,
             onEditClick = {},

@@ -1,5 +1,12 @@
 package com.princelumpy.breakvault.data
 
+import com.princelumpy.breakvault.data.model.battlecombo.BattleCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleComboTagCrossRef
+import com.princelumpy.breakvault.data.model.battlecombo.BattleTag
+import com.princelumpy.breakvault.data.model.move.Move
+import com.princelumpy.breakvault.data.model.move.MoveTag
+import com.princelumpy.breakvault.data.model.move.MoveTagCrossRef
+import com.princelumpy.breakvault.data.model.savedcombo.SavedCombo
 import com.princelumpy.breakvault.data.transfer.AppDataExport
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -24,10 +31,10 @@ class PracticeSerializationTest {
 
     @Test
     fun `Tag serializes correctly`() {
-        val moveListTag = MoveListTag(id = "t1", name = "Power")
-        val string = json.encodeToString(moveListTag)
-        val decoded = json.decodeFromString<MoveListTag>(string)
-        assertEquals(moveListTag, decoded)
+        val moveTag = MoveTag(id = "t1", name = "Power")
+        val string = json.encodeToString(moveTag)
+        val decoded = json.decodeFromString<MoveTag>(string)
+        assertEquals(moveTag, decoded)
     }
 
     @Test
@@ -55,9 +62,15 @@ class PracticeSerializationTest {
     fun `AppDataExport serializes correctly with all fields`() {
         val export = AppDataExport(
             moves = listOf(Move("m1", "Windmill")),
-            moveListTags = listOf(MoveListTag("t1", "Power")),
+            moveTags = listOf(MoveTag("t1", "Power")),
             moveTagCrossRefs = listOf(MoveTagCrossRef("m1", "t1")),
-            savedCombos = listOf(SavedCombo(id = "s1", name = "My Combo", moves = listOf("Windmill"))),
+            savedCombos = listOf(
+                SavedCombo(
+                    id = "s1",
+                    name = "My Combo",
+                    moves = listOf("Windmill")
+                )
+            ),
             battleCombos = listOf(BattleCombo(id = "b1", description = "Battle Round")),
             battleTags = listOf(BattleTag("bt1", "Aggressive")),
             battleComboTagCrossRefs = listOf(BattleComboTagCrossRef("b1", "bt1"))
@@ -76,7 +89,7 @@ class PracticeSerializationTest {
         val oldJson = """
             {
                 "moves": [{"id": "m1", "name": "Windmill"}],
-                "moveListTags": [],
+                "moveTags": [],
                 "moveTagCrossRefs": [],
                 "savedCombos": []
             }

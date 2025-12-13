@@ -1,5 +1,7 @@
 package com.princelumpy.breakvault.ui.screens
 
+import AppStyleDefaults
+import GoalInputDefaults
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
@@ -29,21 +31,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.princelumpy.breakvault.viewmodel.GoalViewModel
+import com.princelumpy.breakvault.R
+import com.princelumpy.breakvault.viewmodel.GoalStageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,190 +53,141 @@ fun AddEditGoalStageScreen(
     navController: NavController,
     goalId: String,
     stageId: String? = null,
-    goalViewModel: GoalViewModel = viewModel()
+    goalStageViewModel: GoalStageViewModel = viewModel()
 ) {
-    var name by remember { mutableStateOf("") }
-    var targetCountStr by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("reps") }
-    var isNameError by remember { mutableStateOf(false) }
-    var isTargetError by remember { mutableStateOf(false) }
-    var initialized by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    
+    val uiState by goalStageViewModel.uiState.collectAsState()
+
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
-    // If editing an existing stage, load its data
-    LaunchedEffect(stageId) {
-        if (stageId != null && !initialized) {
-            val stage = goalViewModel.getStageById(stageId)
-            stage?.let {
-                name = it.name
-                targetCountStr = it.targetCount.toString()
-                unit = it.unit
-                initialized = true
-            }
-        }
+    LaunchedEffect(goalId, stageId) {
+        goalStageViewModel.loadStage(goalId, stageId)
     }
-    
-    // Auto-focus name field on launch if new
-    LaunchedEffect(Unit) {
-        if (stageId == null) {
+
+    LaunchedEffect(uiState) {
+        if (uiState?.isNewStage == true) {
             focusRequester.requestFocus()
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (stageId == null) "Add Goal Stage" else "Edit Goal Stage") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (stageId != null) {
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Stage")
-                        }
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    val target = targetCountStr.toIntOrNull()
-                    if (name.isBlank()) {
-                        isNameError = true
-                    } else if (target == null || target <= 0) {
-                        isTargetError = true
-                    } else {
-                        if (stageId == null) {
-                            // Add New
-                            goalViewModel.addGoalStage(goalId, name, target, unit)
-                        } else {
-                            // Update Existing
-                            goalViewModel.updateGoalStageById(stageId, name, target, unit)
-                        }
-                        navController.popBackStack()
-                    }
-                }
-            ) {
-                Icon(Icons.Default.Save, contentDescription = "Save Stage")
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { focusManager.clearFocus() } // Hide keyboard on tap outside
-        ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { 
-                    if (it.length <= 30) {
-                        name = it
-                        isNameError = false
-                    }
-                },
-                label = { Text("Stage Name (e.g. Windmills)") },
-                isError = isNameError,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-            )
-            if (isNameError) {
-                Text("Name cannot be empty", color = MaterialTheme.colorScheme.error)
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Target Number Input
-                OutlinedTextField(
-                    value = targetCountStr,
-                    onValueChange = { newValue ->
-                        if (newValue.isEmpty()) {
-                            targetCountStr = ""
-                            isTargetError = false
-                        } else if (newValue.all { it.isDigit() }) {
-                            targetCountStr = newValue
-                            isTargetError = false
+    uiState?.let { currentUiState ->
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(id = if (currentUiState.isNewStage) R.string.add_edit_goal_stage_add_title else R.string.add_edit_goal_stage_edit_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back_button_description))
                         }
                     },
-                    label = { Text("Target Count") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next
-                    ),
-                    isError = isTargetError,
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
+                    actions = {
+                        if (!currentUiState.isNewStage) {
+                            IconButton(onClick = { goalStageViewModel.showDeleteDialog(true) }) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.add_edit_goal_stage_delete_description))
+                            }
+                        }
+                    }
                 )
-                
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Unit Input
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = { 
-                         if (it.length <= 10) {
-                             unit = it 
-                         }
-                    },
-                    label = { Text("Unit (e.g. reps)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus() }
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            if (isTargetError) {
-                Text("Target must be a valid number > 0", color = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
-
-    if (showDeleteDialog && stageId != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Stage") },
-            text = { Text("Are you sure you want to delete this stage?") },
-            confirmButton = {
-                TextButton(
+            },
+            floatingActionButton = {
+                FloatingActionButton(
                     onClick = {
-                        goalViewModel.deleteGoalStageById(stageId)
-                        showDeleteDialog = false
-                        navController.popBackStack()
+                        goalStageViewModel.saveStage { navController.popBackStack() }
                     }
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Icon(Icons.Default.Save, contentDescription = stringResource(id = R.string.add_edit_goal_stage_save_description))
                 }
             }
-        )
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(AppStyleDefaults.SpacingLarge)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { focusManager.clearFocus() }
+            ) {
+                OutlinedTextField(
+                    value = currentUiState.name,
+                    onValueChange = { goalStageViewModel.onNameChange(it) },
+                    label = { Text(stringResource(id = R.string.add_edit_goal_stage_name_label)) },
+                    isError = currentUiState.isNameError,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                )
+                if (currentUiState.isNameError) {
+                    Text(stringResource(id = R.string.add_edit_goal_stage_name_error), color = MaterialTheme.colorScheme.error)
+                }
+
+                Spacer(modifier = Modifier.height(AppStyleDefaults.SpacingLarge))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = currentUiState.targetCount,
+                        onValueChange = { goalStageViewModel.onTargetCountChange(it) },
+                        label = { Text(stringResource(id = R.string.add_edit_goal_stage_target_label)) },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next
+                        ),
+                        isError = currentUiState.isTargetError,
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Spacer(modifier = Modifier.width(AppStyleDefaults.SpacingLarge))
+
+                    OutlinedTextField(
+                        value = currentUiState.unit,
+                        onValueChange = { goalStageViewModel.onUnitChange(it) },
+                        label = { Text(stringResource(id = R.string.add_edit_goal_stage_unit_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focusManager.clearFocus() }
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (currentUiState.isTargetError) {
+                    Text(stringResource(id = R.string.add_edit_goal_stage_target_error), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
+        if (currentUiState.showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { goalStageViewModel.showDeleteDialog(false) },
+                title = { Text(stringResource(id = R.string.add_edit_goal_stage_delete_dialog_title)) },
+                text = { Text(stringResource(id = R.string.add_edit_goal_stage_delete_dialog_text)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            goalStageViewModel.deleteStage { navController.popBackStack() }
+                        }
+                    ) {
+                        Text(stringResource(id = R.string.common_delete), color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { goalStageViewModel.showDeleteDialog(false) }) {
+                        Text(stringResource(id = R.string.common_cancel))
+                    }
+                }
+            )
+        }
     }
 }

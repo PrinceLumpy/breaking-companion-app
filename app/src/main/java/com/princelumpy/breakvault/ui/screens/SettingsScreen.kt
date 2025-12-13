@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.princelumpy.breakvault.data.transfer.AppDataExport
 import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
 import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
@@ -28,6 +32,7 @@ import java.io.InputStreamReader
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    navController: NavController,
     moveViewModel: IMoveViewModel = viewModel<MoveViewModel>()
 ) {
     var showResetConfirmDialog by remember { mutableStateOf(false) }
@@ -104,7 +109,17 @@ fun SettingsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = { Text(stringResource(id = R.string.settings_title)) })
+            TopAppBar(
+                title = { Text(stringResource(id = R.string.settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(id = R.string.common_back_button_description)
+                        )
+                    }
+                }
+            )
         }
     ) { paddingValues ->
         Column(
@@ -194,7 +209,10 @@ private fun ResetConfirmationDialog(
 fun SettingsScreenPreview() {
     ComboGeneratorTheme {
         // Note: SAF launchers won't work in Preview, so interaction will be limited.
-        SettingsScreen(moveViewModel = FakeMoveViewModel())
+        SettingsScreen(
+            navController = rememberNavController(),
+            moveViewModel = FakeMoveViewModel()
+        )
     }
 }
 

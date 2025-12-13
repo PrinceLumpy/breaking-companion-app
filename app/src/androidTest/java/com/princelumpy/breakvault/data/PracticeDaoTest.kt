@@ -5,6 +5,12 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.princelumpy.breakvault.data.dao.MoveDao
+import com.princelumpy.breakvault.data.dao.SavedComboDao
+import com.princelumpy.breakvault.data.model.move.Move
+import com.princelumpy.breakvault.data.model.move.MoveTag
+import com.princelumpy.breakvault.data.model.move.MoveTagCrossRef
+import com.princelumpy.breakvault.data.model.savedcombo.SavedCombo
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,7 +25,7 @@ import org.junit.runner.RunWith
 class PracticeDaoTest {
 
     private lateinit var db: AppDB
-    private lateinit var moveTagDao: MoveTagDao
+    private lateinit var moveDao: MoveDao
     private lateinit var savedComboDao: SavedComboDao
 
     @Before
@@ -28,7 +34,7 @@ class PracticeDaoTest {
         db = Room.inMemoryDatabaseBuilder(
             context, AppDB::class.java
         ).build()
-        moveTagDao = db.moveTagDao()
+        moveDao = db.moveDao()
         savedComboDao = db.savedComboDao()
     }
 
@@ -41,19 +47,19 @@ class PracticeDaoTest {
     fun insertAndGetMoveWithTags() = runBlocking {
         // Given
         val move = Move("m1", "Windmill")
-        val moveListTag = MoveListTag("t1", "Power")
-        
+        val moveTag = MoveTag("t1", "Power")
+
         // When
-        moveTagDao.addMove(move)
-        moveTagDao.addTag(moveListTag)
-        moveTagDao.link(MoveTagCrossRef(move.id, moveListTag.id))
+        moveDao.insertMove(move)
+        moveDao.insertMoveTag(moveTag)
+        moveDao.link(MoveTagCrossRef(move.id, moveTag.id))
 
         // Then
-        val loaded = moveTagDao.getMoveWithTagsById("m1")
+        val loaded = moveDao.getMoveWithTags("m1")
         assertNotNull(loaded)
         assertEquals("Windmill", loaded?.move?.name)
-        assertEquals(1, loaded?.moveListTags?.size)
-        assertEquals("Power", loaded?.moveListTags?.first()?.name)
+        assertEquals(1, loaded?.moveTags?.size)
+        assertEquals("Power", loaded?.moveTags?.first()?.name)
     }
 
     @Test
@@ -67,7 +73,7 @@ class PracticeDaoTest {
 
         // When
         savedComboDao.insertSavedCombo(combo)
-        
+
         // Then
         val loaded = savedComboDao.getSavedComboById("c1")
         assertNotNull(loaded)
@@ -80,51 +86,51 @@ class PracticeDaoTest {
     fun deleteMoveCascadesToCrossRef() = runBlocking {
         // Given
         val move = Move("m1", "Delete Me")
-        val moveListTag = MoveListTag("t1", "MoveListTag")
-        moveTagDao.addMove(move)
-        moveTagDao.addTag(moveListTag)
-        moveTagDao.link(MoveTagCrossRef(move.id, moveListTag.id))
+        val moveTag = MoveTag("t1", "MoveTag")
+        moveDao.insertMove(move)
+        moveDao.insertMoveTag(moveTag)
+        moveDao.link(MoveTagCrossRef(move.id, moveTag.id))
 
         // When
-        moveTagDao.deleteMove(move)
+        moveDao.deleteMove(move)
 
         // Then
-        val refs = moveTagDao.getAllMoveTagCrossRefsList()
+        val refs = moveDao.getAllMoveTagCrossRefsList()
         assertTrue(refs.isEmpty()) // Should be empty due to CASCADE
     }
 
     @Test
     fun deleteTagRemovesTagFromMoves() = runBlocking {
-        // Given: A move with two moveListTags (Power, Style)
+        // Given: A move with two moveTags (Power, Style)
         val move = Move("m1", "Halo")
-        val moveListTag1 = MoveListTag("t1", "Power")
-        val moveListTag2 = MoveListTag("t2", "Style")
-        
-        moveTagDao.addMove(move)
-        moveTagDao.addTag(moveListTag1)
-        moveTagDao.addTag(moveListTag2)
-        
-        moveTagDao.link(MoveTagCrossRef(move.id, moveListTag1.id))
-        moveTagDao.link(MoveTagCrossRef(move.id, moveListTag2.id))
+        val moveTag1 = MoveTag("t1", "Power")
+        val moveTag2 = MoveTag("t2", "Style")
+
+        moveDao.insertMove(move)
+        moveDao.insertMoveTag(moveTag1)
+        moveDao.insertMoveTag(moveTag2)
+
+        moveDao.link(MoveTagCrossRef(move.id, moveTag1.id))
+        moveDao.link(MoveTagCrossRef(move.id, moveTag2.id))
 
         // Verify setup
-        val initialLoad = moveTagDao.getMoveWithTagsById("m1")
-        assertEquals(2, initialLoad?.moveListTags?.size)
+        val initialLoad = moveDao.getMoveWithTags("m1")
+        assertEquals(2, initialLoad?.moveTags?.size)
 
-        // When: We delete one moveListTag (Power)
-        moveTagDao.deleteTagCompletely(moveListTag1)
+        // When: We delete one moveTag (Power)
+        moveDao.deleteTagCompletely(moveTag1)
 
         // Then:
         // 1. The Move should still exist
-        val loadedMove = moveTagDao.getMoveWithTagsById("m1")
+        val loadedMove = moveDao.getMoveWithTags("m1")
         assertNotNull(loadedMove)
-        
-        // 2. The Move should only have 1 moveListTag left (Style)
-        assertEquals(1, loadedMove?.moveListTags?.size)
-        assertEquals("Style", loadedMove?.moveListTags?.first()?.name)
-        
-        // 3. The CrossRef for the deleted moveListTag should be gone
-        val allRefs = moveTagDao.getAllMoveTagCrossRefsList()
+
+        // 2. The Move should only have 1 moveTag left (Style)
+        assertEquals(1, loadedMove?.moveTags?.size)
+        assertEquals("Style", loadedMove?.moveTags?.first()?.name)
+
+        // 3. The CrossRef for the deleted moveTag should be gone
+        val allRefs = moveDao.getAllMoveTagCrossRefsList()
         assertEquals(1, allRefs.size)
         assertEquals("t2", allRefs.first().tagId)
     }
@@ -135,8 +141,8 @@ class PracticeDaoTest {
     fun deleteMoveDoesNotBreakSavedCombo() = runBlocking {
         // Given: A move "Windmill" and a SavedCombo using it
         val move = Move("m1", "Windmill")
-        moveTagDao.addMove(move)
-        
+        moveDao.insertMove(move)
+
         val savedCombo = SavedCombo(
             id = "c1",
             name = "Windmill Combo",
@@ -145,22 +151,22 @@ class PracticeDaoTest {
         savedComboDao.insertSavedCombo(savedCombo)
 
         // When: We delete the Move "Windmill"
-        moveTagDao.deleteMove(move)
+        moveDao.deleteMove(move)
 
         // Then: The SavedCombo should STILL exist (loose coupling)
         val loadedCombo = savedComboDao.getSavedComboById("c1")
         assertNotNull(loadedCombo)
-        assertEquals("Windmill", loadedCombo?.moves?.get(0)) 
+        assertEquals("Windmill", loadedCombo?.moves?.get(0))
     }
 
     @Test
     fun cannotLinkInvalidMoveOrTag() = runBlocking {
         // Given: IDs that don't exist
-        val badRef = MoveTagCrossRef("bad-move", "bad-moveListTag")
+        val badRef = MoveTagCrossRef("bad-move", "bad-moveTag")
 
         // When / Then
         try {
-            moveTagDao.link(badRef)
+            moveDao.link(badRef)
             fail("Should have thrown SQLiteConstraintException")
         } catch (_: SQLiteConstraintException) {
             // Expected: FK constraint failed

@@ -1,5 +1,10 @@
 package com.princelumpy.breakvault.data
 
+import com.princelumpy.breakvault.data.model.battlecombo.BattleCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleComboTagCrossRef
+import com.princelumpy.breakvault.data.model.battlecombo.BattleTag
+import com.princelumpy.breakvault.data.model.battlecombo.EnergyLevel
+import com.princelumpy.breakvault.data.model.battlecombo.TrainingStatus
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -7,8 +12,8 @@ import java.util.UUID
 
 class BattleSerializationTest {
 
-    private val json = Json { 
-        encodeDefaults = true 
+    private val json = Json {
+        encodeDefaults = true
         ignoreUnknownKeys = true
     }
 
@@ -37,7 +42,7 @@ class BattleSerializationTest {
     fun `BattleTag serializes and deserializes correctly`() {
         // Given
         val originalTag = BattleTag(
-            id = "moveListTag-123",
+            id = "moveTag-123",
             name = "Power Move"
         )
 
@@ -48,13 +53,13 @@ class BattleSerializationTest {
         // Then
         assertEquals(originalTag, deserializedTag)
     }
-    
+
     @Test
     fun `BattleComboTagCrossRef serializes and deserializes correctly`() {
         // Given
         val crossRef = BattleComboTagCrossRef(
             battleComboId = "combo-1",
-            battleTagId = "moveListTag-1"
+            battleTagId = "moveTag-1"
         )
 
         // When

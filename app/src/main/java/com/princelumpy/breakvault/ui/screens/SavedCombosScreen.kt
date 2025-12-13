@@ -1,8 +1,6 @@
 package com.princelumpy.breakvault.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,11 +33,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -54,7 +52,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.princelumpy.breakvault.R
 import com.princelumpy.breakvault.Screen
-import com.princelumpy.breakvault.data.SavedCombo
+import com.princelumpy.breakvault.data.model.savedcombo.SavedCombo
 import com.princelumpy.breakvault.ui.theme.ComboGeneratorTheme
 import com.princelumpy.breakvault.viewmodel.FakeMoveViewModel
 import com.princelumpy.breakvault.viewmodel.IMoveViewModel
@@ -80,8 +78,11 @@ fun SavedCombosScreen(
         },
         floatingActionButton = {
             if (savedCombosList.isNotEmpty()) {
-                FloatingActionButton(onClick = { navController.navigate(Screen.CreateEditCombo.route) }) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.create_combo_fab_description))
+                FloatingActionButton(onClick = { navController.navigate(Screen.AddEditCombo.route) }) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.create_combo_fab_description)
+                    )
                 }
             }
         }
@@ -108,7 +109,7 @@ fun SavedCombosScreen(
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { navController.navigate(Screen.CreateEditCombo.route) }) {
+                Button(onClick = { navController.navigate(Screen.AddEditCombo.route) }) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Spacer(modifier = Modifier.padding(4.dp))
                     Text("Create Combo")
@@ -129,7 +130,7 @@ fun SavedCombosScreen(
                     SavedComboItem(
                         savedCombo = savedCombo,
                         onEditClick = {
-                            navController.navigate(Screen.CreateEditCombo.withOptionalArgs(mapOf("comboId" to savedCombo.id)))
+                            navController.navigate(Screen.AddEditCombo.withOptionalArgs(mapOf("comboId" to savedCombo.id)))
                         },
                         onDeleteClick = { showDeleteDialog = savedCombo }
                     )
@@ -142,7 +143,14 @@ fun SavedCombosScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text(stringResource(id = R.string.common_confirm_deletion_title)) },
-            text = { Text(stringResource(id = R.string.move_list_delete_confirmation_message, comboToDelete.name)) },
+            text = {
+                Text(
+                    stringResource(
+                        id = R.string.move_list_delete_confirmation_message,
+                        comboToDelete.name
+                    )
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -200,21 +208,21 @@ fun SavedComboItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 IconButton(onClick = onEditClick) {
                     Icon(
-                        Icons.Filled.Edit, 
+                        Icons.Filled.Edit,
                         contentDescription = "Edit Combo",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
-                        Icons.Filled.Delete, 
+                        Icons.Filled.Delete,
                         contentDescription = stringResource(id = R.string.saved_combos_delete_combo_description),
                         tint = MaterialTheme.colorScheme.error
                     )

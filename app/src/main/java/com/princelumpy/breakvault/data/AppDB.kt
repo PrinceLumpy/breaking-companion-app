@@ -7,6 +7,21 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.princelumpy.breakvault.data.dao.BattleDao
+import com.princelumpy.breakvault.data.dao.GoalDao
+import com.princelumpy.breakvault.data.dao.MoveDao
+import com.princelumpy.breakvault.data.dao.SavedComboDao
+import com.princelumpy.breakvault.data.model.battlecombo.BattleCombo
+import com.princelumpy.breakvault.data.model.battlecombo.BattleComboTagCrossRef
+import com.princelumpy.breakvault.data.model.battlecombo.BattleTag
+import com.princelumpy.breakvault.data.model.battlecombo.EnergyLevel
+import com.princelumpy.breakvault.data.model.battlecombo.TrainingStatus
+import com.princelumpy.breakvault.data.model.goal.Goal
+import com.princelumpy.breakvault.data.model.goal.GoalStage
+import com.princelumpy.breakvault.data.model.move.Move
+import com.princelumpy.breakvault.data.model.move.MoveTag
+import com.princelumpy.breakvault.data.model.move.MoveTagCrossRef
+import com.princelumpy.breakvault.data.model.savedcombo.SavedCombo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,10 +44,9 @@ import java.util.UUID
 
 @TypeConverters(Converters::class)
 abstract class AppDB : RoomDatabase() {
-    abstract fun moveTagDao(): MoveTagDao
+    abstract fun moveDao(): MoveDao
     abstract fun savedComboDao(): SavedComboDao
-    abstract fun battleComboDao(): BattleComboDao
-    abstract fun battleTagDao(): BattleTagDao
+    abstract fun battleDao(): BattleDao
     abstract fun goalDao(): GoalDao
 
     companion object {
@@ -57,18 +71,17 @@ abstract class AppDB : RoomDatabase() {
         }
 
         suspend fun prepopulateExampleData(database: AppDB) {
-            val moveTagDao = database.moveTagDao()
+            val moveTagDao = database.moveDao()
             val savedComboDao = database.savedComboDao()
-            val battleDao = database.battleComboDao()
-            val battleTagDao = database.battleTagDao()
+            val battleDao = database.battleDao()
 
             // --- 1. Tags ---
             val tagsToEnsure = listOf("Toprock", "Footwork", "Freeze", "Power")
             val tagMap = mutableMapOf<String, String>() // Name -> ID
             tagsToEnsure.forEach { name ->
-                val newMoveListTag = MoveTag(id = UUID.randomUUID().toString(), name = name)
-                moveTagDao.addTag(newMoveListTag)
-                tagMap[name] = newMoveListTag.id
+                val newMoveTag = MoveTag(id = UUID.randomUUID().toString(), name = name)
+                moveTagDao.insertMoveTag(newMoveTag)
+                tagMap[name] = newMoveTag.id
             }
 
             // Only prepopulate the following data if developing, not in production
@@ -84,7 +97,7 @@ abstract class AppDB : RoomDatabase() {
                 )
                 movesData.forEach { (moveName, tagName) ->
                     val realMoveId = UUID.randomUUID().toString()
-                    moveTagDao.addMove(Move(id = realMoveId, name = moveName))
+                    moveTagDao.insertMove(Move(id = realMoveId, name = moveName))
                     tagMap[tagName]?.let { tagId ->
                         moveTagDao.link(MoveTagCrossRef(moveId = realMoveId, tagId = tagId))
                     }
@@ -108,7 +121,7 @@ abstract class AppDB : RoomDatabase() {
                 val battleTagMap = mutableMapOf<String, String>()
                 battleTagsToEnsure.forEach { name ->
                     val newTag = BattleTag(id = UUID.randomUUID().toString(), name = name)
-                    battleTagDao.insertBattleTag(newTag)
+                    battleDao.insertBattleTag(newTag)
                     battleTagMap[name] = newTag.id
                 }
 
@@ -178,7 +191,7 @@ abstract class AppDB : RoomDatabase() {
                 }
             } ?: Log.e(
                 "AppDbCallback",
-                "INSTANCE was null during onCreate, cannot prepopulate moveListTags."
+                "INSTANCE was null during onCreate, cannot prepopulate moveTags."
             )
         }
     }
